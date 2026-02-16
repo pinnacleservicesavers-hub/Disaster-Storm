@@ -18,7 +18,8 @@ import {
   XCircle, RefreshCw, Plus, ChevronRight, Target, Zap,
   Trash2, Edit, Save, Calculator, ClipboardList, Receipt,
   UserPlus, Settings, ChevronDown, ChevronUp, Printer,
-  Building2, Navigation, Briefcase, FolderOpen, MessageSquare
+  Building2, Navigation, Briefcase, FolderOpen, MessageSquare,
+  CloudLightning
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -39,6 +40,7 @@ import PhotoUploadComponent, { type UploadedPhoto } from "@/components/fema/Phot
 import JobTrackerComponent, { type JobEntry } from "@/components/fema/JobTracker";
 import ContractDocumentsComponent from "@/components/fema/ContractDocuments";
 import LocationIntelligenceComponent from "@/components/fema/LocationIntelligence";
+import StormTrackingComponent from "@/components/fema/StormTracking";
 import ProjectCommunicationsComponent from "@/components/fema/ProjectCommunications";
 
 interface LaborRate {
@@ -1695,6 +1697,7 @@ export default function FemaAuditDashboard() {
     { id: 'leaner-hanger', label: 'Leaner/Hanger', icon: Target, group: 'Debris' },
     { id: 'monitor', label: 'Monitor Log', icon: Eye, group: 'Oversight' },
     { id: 'sub-risk', label: 'Sub Risk', icon: AlertTriangle, group: 'Oversight' },
+    { id: 'storm-tracking', label: 'Storm Tracking', icon: CloudLightning, group: 'Storm' },
     { id: 'location-intel', label: 'Location Intelligence', icon: Navigation, group: 'GPS' },
     { id: 'ai-verify', label: 'AI Verify', icon: Brain, group: 'AI' },
     { id: 'invoice', label: 'Invoice', icon: Receipt, group: 'Billing' },
@@ -1853,6 +1856,15 @@ export default function FemaAuditDashboard() {
           {activeTab === 'monitor' && (
             <MonitorLogComponent entries={monitorEntries} setEntries={handleSetMonitorEntries}
               contractPW={contractInfo.projectWorksheetNumber} />
+          )}
+          {activeTab === 'storm-tracking' && (
+            <StormTrackingComponent contractInfo={{
+              femaDisasterNumber: contractInfo.femaDisasterNumber,
+              incidentNumber: contractInfo.incidentNumber,
+              projectWorksheetNumber: contractInfo.projectWorksheetNumber,
+              state: contractInfo.stateOfEmergency,
+              county: contractInfo.county
+            }} />
           )}
           {activeTab === 'location-intel' && (
             <LocationIntelligenceComponent />

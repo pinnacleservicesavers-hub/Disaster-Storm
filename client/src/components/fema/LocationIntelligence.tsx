@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,8 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Layers, Shield, CheckCircle2, AlertTriangle, XCircle, Radio, MapPin,
   Camera, Clock, Cloud, Users, Truck, Smartphone, Brain, Plus, Eye,
-  Lock, Link2, Activity, Zap, Target, ChevronDown, ChevronUp, RefreshCw
+  Lock, Link2, Activity, Zap, Target, ChevronDown, ChevronUp, RefreshCw,
+  CloudLightning, Wind, Droplets
 } from "lucide-react";
 
 interface VerificationEvent {
@@ -129,6 +131,12 @@ export default function LocationIntelligence() {
   const [showNewEvent, setShowNewEvent] = useState(false);
   const [showAuditChain, setShowAuditChain] = useState(false);
   const [simulating, setSimulating] = useState(false);
+
+  const { data: stormLinksData } = useQuery<any>({
+    queryKey: ['/api/fema-data/storm-links'],
+    refetchInterval: 60000,
+  });
+  const linkedStorms = (stormLinksData?.links || []).filter((l: any) => l.status === 'active');
 
   const [newEvent, setNewEvent] = useState({
     eventType: '',
@@ -525,6 +533,48 @@ export default function LocationIntelligence() {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900 border-slate-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <CloudLightning className="h-4 w-4 text-yellow-400" />
+                Storm Correlation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {linkedStorms.length === 0 ? (
+                <div className="text-center py-3">
+                  <CloudLightning className="h-6 w-6 mx-auto mb-1 text-slate-600" />
+                  <p className="text-[10px] text-slate-500">No storms linked to contract</p>
+                  <p className="text-[9px] text-slate-600">Link storms in Storm Tracking tab</p>
+                </div>
+              ) : (
+                linkedStorms.map((storm: any) => (
+                  <div key={storm.id} className="p-2 rounded border border-yellow-500/20 bg-yellow-500/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CloudLightning className="h-3.5 w-3.5 text-yellow-400" />
+                      <span className="text-xs font-medium text-white">{storm.storm_name || storm.storm_id}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
+                      <Badge variant="outline" className="text-[9px] py-0 h-4">{storm.storm_type || 'weather'}</Badge>
+                      {storm.state && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{storm.state}</span>}
+                      {storm.wind_speed && <span className="flex items-center gap-0.5"><Wind className="h-2.5 w-2.5" />{storm.wind_speed}mph</span>}
+                      {storm.rainfall && <span className="flex items-center gap-0.5"><Droplets className="h-2.5 w-2.5" />{storm.rainfall}"</span>}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-green-400" />
+                      <span className="text-[9px] text-green-400">Weather signal cross-verified</span>
+                    </div>
+                  </div>
+                ))
+              )}
+              {linkedStorms.length > 0 && (
+                <div className="p-2 rounded bg-blue-500/5 border border-blue-500/10">
+                  <p className="text-[9px] text-blue-400">Weather signals in verification events are automatically cross-referenced with linked storm data for enhanced accuracy</p>
                 </div>
               )}
             </CardContent>

@@ -7,11 +7,13 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 import { 
   MapPin, TrendingUp, AlertTriangle, Clock, DollarSign, Navigation,
   Brain, BookOpen, Lightbulb, Target, Zap, ThermometerSun, Wind, 
   Droplets, Eye, BarChart3, Atom, GraduationCap, ChevronRight,
-  Activity, Layers, Radio, Gauge, CheckCircle2, Info, Volume2, VolumeX, Loader2
+  Activity, Layers, Radio, Gauge, CheckCircle2, Info, Volume2, VolumeX, Loader2,
+  Shield, Link2, ExternalLink
 } from 'lucide-react';
 
 interface PredictionDashboard {
@@ -439,7 +441,11 @@ export default function StormPredictions() {
     return stateMap[stateName] || stateName;
   };
 
-  // Expanded dropdown state for each metric
+  const { data: stormComplianceData } = useQuery<any>({
+    queryKey: ['/api/fema-data/storm-compliance-summary'],
+    refetchInterval: 60000,
+  });
+
   const [expandedMetric, setExpandedMetric] = useState<'storms' | 'zones' | 'opportunities' | null>(null);
 
   // Legacy dashboard query (fallback)
@@ -716,6 +722,56 @@ export default function StormPredictions() {
                     <div className="text-xs text-green-300/60 mt-1">{summary.totalEstimatedJobs || 0} estimated jobs</div>
                   </Card>
                 </div>
+
+                {stormComplianceData && (
+                  <Card className="mb-8 bg-gradient-to-r from-slate-900/80 to-blue-900/30 border border-blue-500/30 p-4">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-600/20">
+                          <Shield className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-white flex items-center gap-2">
+                            FEMA Audit & Compliance
+                            {stormComplianceData.linkedStorms > 0 ? (
+                              <Badge className="bg-green-600/20 text-green-400 border border-green-500/30 text-xs">
+                                <Link2 className="h-3 w-3 mr-1" />{stormComplianceData.linkedStorms} Storm{stormComplianceData.linkedStorms > 1 ? 's' : ''} Linked
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-yellow-400 border-yellow-500/30 text-xs">No Storms Linked</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400">
+                            {stormComplianceData.verification?.totalEvents || 0} verification events
+                            {' · '}{stormComplianceData.verification?.avgConfidence || 0}% avg confidence
+                            {' · '}{stormComplianceData.auditChainEntries || 0} audit chain entries
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {(stormComplianceData.complianceScopes || []).slice(0, 3).map((scope: any) => {
+                          const score = parseFloat(scope.overall_score) || 0;
+                          return (
+                            <div key={scope.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60">
+                              <span className="text-xs text-slate-400">{scope.scope_name || scope.scope_id}</span>
+                              <span className={`text-sm font-mono font-bold ${score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {score.toFixed(0)}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {stormComplianceData.verification?.criticalRisk > 0 && (
+                          <Badge className="bg-red-600/20 text-red-400 border border-red-500/30 text-xs animate-pulse">
+                            <AlertTriangle className="h-3 w-3 mr-1" />{stormComplianceData.verification.criticalRisk} Critical
+                          </Badge>
+                        )}
+                        <a href="/fema-audit" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                          Open Audit Dashboard <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </Card>
+                )}
 
                 {/* Expanded Dropdown Panels */}
                 {expandedMetric === 'storms' && (

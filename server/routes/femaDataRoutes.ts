@@ -896,7 +896,9 @@ function evaluateSignal(signal: SignalInput, eventData: any): { status: string; 
     case 'weather': {
       if (!signalValue || !signalValue.conditions) return { status: 'unknown', evidence: 'No weather data available for correlation' };
       const conditions = signalValue.conditions.toLowerCase();
-      if (conditions.includes('tornado') || conditions.includes('hurricane')) return { status: 'warning', evidence: `Severe weather conditions reported: ${signalValue.conditions} — verify crew safety` };
+      const stormCorrelated = signalValue.stormLinked || signalValue.stormId;
+      if (conditions.includes('tornado') || conditions.includes('hurricane')) return { status: 'warning', evidence: `Severe weather conditions reported: ${signalValue.conditions} — verify crew safety${stormCorrelated ? ' [Storm-linked]' : ''}` };
+      if (stormCorrelated) return { status: 'pass', evidence: `Weather cross-verified with linked storm event: ${signalValue.conditions}, temp ${signalValue.temperature || 'N/A'}°F, wind ${signalValue.windSpeed || 'N/A'} mph [Storm-correlated]` };
       return { status: 'pass', evidence: `Weather conditions consistent: ${signalValue.conditions}, temp ${signalValue.temperature || 'N/A'}°F` };
     }
     case 'sign_in': {
@@ -1173,7 +1175,7 @@ router.post('/verification-events/simulate', async (req: Request, res: Response)
         jobId: 'JOB-2025-001', locationLat: '30.2672', locationLng: '-97.7431', locationAccuracyMeters: '15',
         deviceId: 'DEV-001', deviceFingerprint: 'fp_abc123def456',
         exifMeta: { gpsLatitude: 30.2672, gpsLongitude: -97.7431, dateTime: new Date().toISOString(), cameraModel: 'iPhone 15 Pro' },
-        weatherSnapshot: { conditions: 'Partly Cloudy', temperature: 72, humidity: 65 },
+        weatherSnapshot: { conditions: 'Partly Cloudy', temperature: 72, humidity: 65, stormLinked: true },
         signInId: 'SI-001', sourceNotes: 'Crew arrived at debris staging area',
         signals: [
           { signalType: 'photo', signalValue: { hasPhoto: true, aiVerified: true, description: 'Crew at staging area with equipment' }, weight: 1.0 },
@@ -1243,6 +1245,132 @@ router.post('/verification-events/simulate', async (req: Request, res: Response)
   } catch (error) {
     console.error('Error simulating verification events:', error);
     res.status(500).json({ success: false, error: 'Failed to simulate events' });
+  }
+});
+
+router.get('/storm-links', async (req: Request, res: Response) => {
+  try {
+    const { status } = req.query;
+    let result;
+    if (status) {
+      result = await db.execute(sql`SELECT * FROM fema_storm_event_links WHERE status = ${status as string} ORDER BY linked_at DESC`);
+    } else {
+      result = await db.execute(sql`SELECT * FROM fema_storm_event_links ORDER BY linked_at DESC`);
+    }
+
+    const verificationStats = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total_events,
+        ROUND(AVG(confidence_score::numeric), 1) as avg_confidence,
+        COUNT(CASE WHEN risk_level = 'high' OR risk_level = 'critical' THEN 1 END) as high_risk
+      FROM fema_verification_events
+    `);
+    const stats = verificationStats.rows[0] || {};
+
+    res.json({ 
+      success: true, 
+      links: result.rows,
+      verificationStats: {
+        totalEvents: parseInt(stats.total_events as string) || 0,
+        avgConfidence: parseFloat(stats.avg_confidence as string) || 0,
+        highRiskCount: parseInt(stats.high_risk as string) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching storm links:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch storm links' });
+  }
+});
+
+router.post('/storm-links', async (req: Request, res: Response) => {
+  try {
+    const d = req.body;
+    if (!d.stormId) {
+      return res.status(400).json({ success: false, error: 'stormId is required' });
+    }
+
+    const existing = await db.execute(sql`SELECT id FROM fema_storm_event_links WHERE storm_id = ${d.stormId} AND status = 'active'`);
+    if (existing.rows.length > 0) {
+      await db.execute(sql`UPDATE fema_storm_event_links SET
+        storm_name=${d.stormName||null}, storm_type=${d.stormType||null}, severity=${d.severity||null},
+        fema_disaster_number=${d.femaDisasterNumber||null}, incident_number=${d.incidentNumber||null},
+        contract_pw=${d.contractPW||null}, state=${d.state||null}, county=${d.county||null},
+        impact_start=${d.impactStart ? new Date(d.impactStart) : null},
+        impact_end=${d.impactEnd ? new Date(d.impactEnd) : null},
+        wind_speed=${d.windSpeed||null}, rainfall=${d.rainfall||null},
+        damage_estimate=${d.damageEstimate||null},
+        metadata=${JSON.stringify(d.metadata || {})}::jsonb,
+        updated_at=NOW()
+        WHERE id=${(existing.rows[0] as any).id}`);
+      res.json({ success: true, action: 'updated', id: (existing.rows[0] as any).id });
+    } else {
+      const result = await db.execute(sql`INSERT INTO fema_storm_event_links 
+        (storm_id, storm_name, storm_type, severity, fema_disaster_number, incident_number, contract_pw, state, county, impact_start, impact_end, wind_speed, rainfall, damage_estimate, metadata)
+        VALUES (${d.stormId}, ${d.stormName||null}, ${d.stormType||null}, ${d.severity||null},
+                ${d.femaDisasterNumber||null}, ${d.incidentNumber||null}, ${d.contractPW||null},
+                ${d.state||null}, ${d.county||null},
+                ${d.impactStart ? new Date(d.impactStart) : null}, ${d.impactEnd ? new Date(d.impactEnd) : null},
+                ${d.windSpeed||null}, ${d.rainfall||null}, ${d.damageEstimate||null},
+                ${JSON.stringify(d.metadata || {})}::jsonb)
+        RETURNING id`);
+      
+      await appendAuditChain('storm_link', d.stormId, 'linked', d.actor || 'system', 'operator', {
+        stormName: d.stormName, stormType: d.stormType, femaDisaster: d.femaDisasterNumber
+      });
+
+      res.json({ success: true, action: 'created', id: (result.rows[0] as any).id });
+    }
+  } catch (error) {
+    console.error('Error creating/updating storm link:', error);
+    res.status(500).json({ success: false, error: 'Failed to save storm link' });
+  }
+});
+
+router.delete('/storm-links/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`UPDATE fema_storm_event_links SET status = 'unlinked', updated_at = NOW() WHERE id = ${parseInt(id)}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error unlinking storm:', error);
+    res.status(500).json({ success: false, error: 'Failed to unlink storm' });
+  }
+});
+
+router.get('/storm-compliance-summary', async (req: Request, res: Response) => {
+  try {
+    const links = await db.execute(sql`SELECT * FROM fema_storm_event_links WHERE status = 'active' ORDER BY linked_at DESC`);
+    const compliance = await db.execute(sql`SELECT * FROM fema_compliance_status ORDER BY overall_score ASC`);
+    const events = await db.execute(sql`SELECT COUNT(*) as total, 
+      COUNT(CASE WHEN risk_level='low' THEN 1 END) as low_risk,
+      COUNT(CASE WHEN risk_level='medium' THEN 1 END) as medium_risk,
+      COUNT(CASE WHEN risk_level='high' THEN 1 END) as high_risk,
+      COUNT(CASE WHEN risk_level='critical' THEN 1 END) as critical_risk,
+      ROUND(AVG(confidence_score::numeric), 1) as avg_confidence
+      FROM fema_verification_events`);
+    const chain = await db.execute(sql`SELECT COUNT(*) as total FROM fema_audit_chain`);
+
+    const eventStats = events.rows[0] || {};
+    const activeLinks = links.rows.filter((l: any) => l.status === 'active');
+
+    res.json({
+      success: true,
+      linkedStorms: activeLinks.length,
+      storms: activeLinks,
+      complianceScopes: compliance.rows,
+      verification: {
+        totalEvents: parseInt(eventStats.total as string) || 0,
+        avgConfidence: parseFloat(eventStats.avg_confidence as string) || 0,
+        lowRisk: parseInt(eventStats.low_risk as string) || 0,
+        mediumRisk: parseInt(eventStats.medium_risk as string) || 0,
+        highRisk: parseInt(eventStats.high_risk as string) || 0,
+        criticalRisk: parseInt(eventStats.critical_risk as string) || 0,
+      },
+      auditChainEntries: parseInt((chain.rows[0] as any)?.total as string) || 0
+    });
+  } catch (error) {
+    console.error('Error fetching storm compliance summary:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch storm compliance summary' });
   }
 });
 

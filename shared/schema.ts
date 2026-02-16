@@ -9656,3 +9656,30 @@ export const femaComplianceStatus = pgTable("fema_compliance_status", {
 
 export const insertFemaComplianceStatusSchema = createInsertSchema(femaComplianceStatus).omit({ id: true, updatedAt: true });
 export type FemaComplianceStatusEntry = typeof femaComplianceStatus.$inferSelect;
+
+export const femaStormEventLinks = pgTable("fema_storm_event_links", {
+  id: serial("id").primaryKey(),
+  stormId: varchar("storm_id", { length: 255 }).notNull(),
+  stormName: varchar("storm_name", { length: 255 }),
+  stormType: varchar("storm_type", { length: 100 }),
+  severity: varchar("severity", { length: 50 }),
+  femaDisasterNumber: varchar("fema_disaster_number", { length: 100 }),
+  incidentNumber: varchar("incident_number", { length: 100 }),
+  contractPW: varchar("contract_pw", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  county: varchar("county", { length: 255 }),
+  impactStart: timestamp("impact_start"),
+  impactEnd: timestamp("impact_end"),
+  windSpeed: numeric("wind_speed", { precision: 6, scale: 2 }),
+  rainfall: numeric("rainfall", { precision: 6, scale: 2 }),
+  damageEstimate: numeric("damage_estimate", { precision: 14, scale: 2 }),
+  complianceScore: numeric("compliance_score", { precision: 5, scale: 2 }),
+  verificationCount: integer("verification_count").default(0),
+  status: varchar("status", { length: 30 }).default("active"),
+  metadata: jsonb("metadata"),
+  linkedAt: timestamp("linked_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaStormEventLinkSchema = createInsertSchema(femaStormEventLinks).omit({ id: true, linkedAt: true, updatedAt: true });
+export type FemaStormEventLink = typeof femaStormEventLinks.$inferSelect;
