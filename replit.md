@@ -53,6 +53,8 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Xactimate-Ready Estimating Strategy**: The platform collects measurements, photos, and scope documentation to produce pre-estimate worksheets, focusing on feeding complete scope information to human estimators for input into Xactimate.
 - **Industry Benchmark Pricing Language**: Uses neutral terminology like "Industry-standard pricing ranges" or "Insurance-aligned benchmarks" for pricing.
 
+- **Auto Form Filler AI**: Digital Compliance Vault + Smart Form Auto-Filling system. Master business profile (EIN, UEI, CAGE, NAICS, insurance, banking, certifications), document vault (W-9, insurance certs, licenses, OSHA logs, MSAs), and AI-powered form auto-filling with 100+ smart field synonym mappings. Backend service at `server/services/autoFormFillerService.ts`, routes at `server/routes/autoFormFillerRoutes.ts`, frontend at `client/src/pages/AutoFormFiller.tsx`. Database tables: master_profiles, profile_documents, form_fill_runs.
+
 ## External Dependencies
 
 ### Core Infrastructure

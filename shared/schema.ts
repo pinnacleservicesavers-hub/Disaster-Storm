@@ -9683,3 +9683,81 @@ export const femaStormEventLinks = pgTable("fema_storm_event_links", {
 
 export const insertFemaStormEventLinkSchema = createInsertSchema(femaStormEventLinks).omit({ id: true, linkedAt: true, updatedAt: true });
 export type FemaStormEventLink = typeof femaStormEventLinks.$inferSelect;
+
+// ===== AUTO FORM FILLER AI TABLES =====
+
+export const masterProfiles = pgTable("master_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  businessName: varchar("business_name", { length: 255 }),
+  legalName: varchar("legal_name", { length: 255 }),
+  ownerName: varchar("owner_name", { length: 255 }),
+  ownerTitle: varchar("owner_title", { length: 100 }),
+  ownerEmail: varchar("owner_email", { length: 255 }),
+  ownerPhone: varchar("owner_phone", { length: 50 }),
+  ein: varchar("ein", { length: 20 }),
+  uei: varchar("uei", { length: 20 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  zip: varchar("zip", { length: 20 }),
+  naicsCodes: text("naics_codes"),
+  businessType: varchar("business_type", { length: 100 }),
+  cageCode: varchar("cage_code", { length: 20 }),
+  insuranceProvider: varchar("insurance_provider", { length: 255 }),
+  insurancePolicyNumber: varchar("insurance_policy_number", { length: 100 }),
+  insuranceLimits: jsonb("insurance_limits").$type<JsonObject>(),
+  insuranceExpiry: varchar("insurance_expiry", { length: 50 }),
+  bankName: varchar("bank_name", { length: 255 }),
+  bankRoutingNumber: varchar("bank_routing_number", { length: 50 }),
+  bankAccountNumber: varchar("bank_account_number", { length: 50 }),
+  equipmentList: jsonb("equipment_list").$type<JsonArray>(),
+  laborClassifications: jsonb("labor_classifications").$type<JsonArray>(),
+  certifications: jsonb("certifications").$type<JsonArray>(),
+  rateSheetData: jsonb("rate_sheet_data").$type<JsonObject>(),
+  additionalData: jsonb("additional_data").$type<JsonObject>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMasterProfileSchema = createInsertSchema(masterProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type MasterProfile = typeof masterProfiles.$inferSelect;
+export type InsertMasterProfile = z.infer<typeof insertMasterProfileSchema>;
+
+export const profileDocuments = pgTable("profile_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id", { length: 255 }).notNull(),
+  docType: varchar("doc_type", { length: 100 }),
+  docName: varchar("doc_name", { length: 255 }),
+  fileName: varchar("file_name", { length: 255 }),
+  fileSize: integer("file_size"),
+  extractedData: jsonb("extracted_data").$type<JsonObject>(),
+  version: integer("version").default(1),
+  status: varchar("status", { length: 30 }).default("active"),
+  expiryDate: varchar("expiry_date", { length: 50 }),
+  tags: text("tags"),
+  projectRef: varchar("project_ref", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProfileDocumentSchema = createInsertSchema(profileDocuments).omit({ id: true, createdAt: true });
+export type ProfileDocument = typeof profileDocuments.$inferSelect;
+export type InsertProfileDocument = z.infer<typeof insertProfileDocumentSchema>;
+
+export const formFillRuns = pgTable("form_fill_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id", { length: 255 }).notNull(),
+  formName: varchar("form_name", { length: 255 }),
+  formType: varchar("form_type", { length: 100 }),
+  fieldsDetected: integer("fields_detected").default(0),
+  fieldsFilled: integer("fields_filled").default(0),
+  fillPercentage: numeric("fill_percentage", { precision: 5, scale: 2 }),
+  fieldMappings: jsonb("field_mappings").$type<JsonArray>(),
+  missingFields: jsonb("missing_fields").$type<JsonArray>(),
+  status: varchar("status", { length: 30 }).default("completed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFormFillRunSchema = createInsertSchema(formFillRuns).omit({ id: true, createdAt: true });
+export type FormFillRun = typeof formFillRuns.$inferSelect;
+export type InsertFormFillRun = z.infer<typeof insertFormFillRunSchema>;

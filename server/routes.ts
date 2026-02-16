@@ -89,6 +89,7 @@ import bidIntelProRoutes from "./routes/bidIntelPro";
 import trueCostSheetRoutes from "./routes/trueCostSheet";
 import femaAuditRoutes from "./routes/femaAuditRoutes";
 import femaDataRoutes from "./routes/femaDataRoutes";
+import autoFormFillerRouter from "./routes/autoFormFillerRoutes";
 import { signatureAuditService } from "./services/signatureAuditService";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
@@ -2589,6 +2590,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   app.use('/api/fema-audit', femaAuditRoutes);
   app.use('/api/fema-data', femaDataRoutes);
   console.log('📋 AuditShield Grant & Contract Compliance AI routes registered - Multi-agency compliance, fraud detection');
+
+  // ---- Auto Form Filler AI Routes ----
+  app.use('/api/form-filler', autoFormFillerRouter);
+  console.log('📁 Auto Form Filler AI routes registered - /api/form-filler/*');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);

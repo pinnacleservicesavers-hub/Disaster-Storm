@@ -57,6 +57,7 @@ const Watchlist = lazy(() => import("./pages/Watchlist"));
 const AIBidIntelPro = lazy(() => import("./pages/AIBidIntelPro"));
 const TreeIncidentTracker = lazy(() => import("./pages/TreeIncidentTracker"));
 const FemaAuditDashboard = lazy(() => import("./pages/FemaAuditDashboard"));
+const AutoFormFiller = lazy(() => import("./pages/AutoFormFiller"));
 
 // Contractor Hub - Unified Dashboard
 const ContractorHub = lazy(() => import("./pages/ContractorHub"));
@@ -139,6 +140,7 @@ const galleryRoutes = {
   "disaster-lens":      { launch: "/disaster-lens" },
   "xray":               { launch: "/modules/xray-reality" },
   "bidintel-pro":       { launch: "/bidintel-pro" },
+  "auto-form-filler":   { launch: "/auto-form-filler" },
 };
 
 // Route guard component for protected routes
@@ -246,6 +248,7 @@ export default function App() {
           <Route path="/hazard-dashboard" element={<ProtectedRoute><HazardDashboard /></ProtectedRoute>} />
           <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/bidintel-pro" element={<ProtectedRoute><AIBidIntelPro /></ProtectedRoute>} />
+          <Route path="/auto-form-filler" element={<ProtectedRoute><AutoFormFiller /></ProtectedRoute>} />
           <Route path="/tree-tracker" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
           <Route path="/tree-tracker/:id" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
           <Route path="/fema-audit" element={<ProtectedRoute><FemaAuditDashboard /></ProtectedRoute>} />
