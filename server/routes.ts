@@ -10109,6 +10109,127 @@ Email: strategiclandmgmt@gmail.com
   
   console.log('🛰️ EOS Satellite Imagery routes registered - /api/satellite/*');
 
+  // ===== MAXAR / SPYMESAT SATELLITE INTELLIGENCE ENDPOINTS =====
+
+  const maxarService = await import('./services/maxarSatellite');
+
+  app.get('/api/maxar/search', async (req, res) => {
+    try {
+      const { lat, lon, startDate, endDate, minResolution, maxCloudCover } = req.query;
+      if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required' });
+      const result = await maxarService.searchMaxarImagery(
+        parseFloat(lat as string), parseFloat(lon as string),
+        (startDate as string) || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+        (endDate as string) || new Date().toISOString().split('T')[0],
+        minResolution ? parseFloat(minResolution as string) : undefined,
+        maxCloudCover ? parseInt(maxCloudCover as string) : 20
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Maxar search error:', error);
+      res.status(500).json({ error: 'Failed to search Maxar imagery' });
+    }
+  });
+
+  app.get('/api/maxar/overflights', async (req, res) => {
+    try {
+      const { lat, lon, hours } = req.query;
+      if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required' });
+      const result = await maxarService.getOverflightSchedule(
+        parseFloat(lat as string), parseFloat(lon as string),
+        hours ? parseInt(hours as string) : 72
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Overflight schedule error:', error);
+      res.status(500).json({ error: 'Failed to get overflight schedule' });
+    }
+  });
+
+  app.get('/api/maxar/archive', async (req, res) => {
+    try {
+      const { lat, lon, startDate, endDate, stormLinked } = req.query;
+      if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required' });
+      const result = await maxarService.getArchiveImagery(
+        parseFloat(lat as string), parseFloat(lon as string),
+        (startDate as string) || new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0],
+        (endDate as string) || new Date().toISOString().split('T')[0],
+        stormLinked === 'true'
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Archive imagery error:', error);
+      res.status(500).json({ error: 'Failed to get archive imagery' });
+    }
+  });
+
+  app.post('/api/maxar/tasking', async (req, res) => {
+    try {
+      const { lat, lon, radius, priority, resolution, cloudCoverMax, windowStart, windowEnd, stormId, stormName, contractId, notes } = req.body;
+      if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required' });
+      const result = await maxarService.createTaskingRequest({
+        lat: parseFloat(lat), lon: parseFloat(lon),
+        radius: radius || 5, priority: priority || 'routine',
+        resolution: resolution || '0.31m', cloudCoverMax: cloudCoverMax || 20,
+        windowStart: windowStart || new Date().toISOString(),
+        windowEnd: windowEnd || new Date(Date.now() + 7 * 86400000).toISOString(),
+        stormId, stormName, contractId, notes: notes || '',
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Tasking request error:', error);
+      res.status(500).json({ error: 'Failed to create tasking request' });
+    }
+  });
+
+  app.get('/api/maxar/tasking', async (req, res) => {
+    try {
+      const { stormId } = req.query;
+      const requests = maxarService.getTaskingRequests(stormId as string);
+      res.json({ success: true, requests });
+    } catch (error) {
+      console.error('Get tasking error:', error);
+      res.status(500).json({ error: 'Failed to get tasking requests' });
+    }
+  });
+
+  app.get('/api/maxar/tasking/:id', async (req, res) => {
+    try {
+      const request = maxarService.getTaskingRequest(req.params.id);
+      if (!request) return res.status(404).json({ error: 'Tasking request not found' });
+      res.json({ success: true, request });
+    } catch (error) {
+      console.error('Get tasking detail error:', error);
+      res.status(500).json({ error: 'Failed to get tasking request' });
+    }
+  });
+
+  app.post('/api/maxar/before-after', async (req, res) => {
+    try {
+      const { lat, lon, stormDate, stormType, stormId } = req.body;
+      if (!lat || !lon || !stormDate) return res.status(400).json({ error: 'lat, lon, and stormDate are required' });
+      const analysis = await maxarService.analyzeBeforeAfter(
+        parseFloat(lat), parseFloat(lon), stormDate, stormType || 'hurricane', stormId
+      );
+      res.json({ success: true, analysis });
+    } catch (error) {
+      console.error('Before/after analysis error:', error);
+      res.status(500).json({ error: 'Failed to analyze before/after imagery' });
+    }
+  });
+
+  app.get('/api/maxar/constellation', async (_req, res) => {
+    try {
+      const status = maxarService.getConstellationStatus();
+      res.json({ success: true, ...status });
+    } catch (error) {
+      console.error('Constellation status error:', error);
+      res.status(500).json({ error: 'Failed to get constellation status' });
+    }
+  });
+
+  console.log('🛰️ Maxar/SpyMeSat Satellite Intelligence routes registered - /api/maxar/*');
+
   // ===== DOCUSIGN DOCUMENT SIGNING ENDPOINTS =====
   
   const { docuSignService } = await import('./services/docusign');

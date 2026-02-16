@@ -4,19 +4,22 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
-import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe, ArrowLeft } from 'lucide-react';
+import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe, ArrowLeft, Satellite } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+
+const SatelliteIntelligence = lazy(() => import('@/components/satellite/SatelliteIntelligence'));
 
 export default function EyesInSky() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [activeSection, setActiveSection] = useState<'streams' | 'satellite'>('streams');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [liveStatus, setLiveStatus] = useState<{[key: string]: 'live' | 'offline' | 'scheduled'}>({});
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -275,7 +278,29 @@ export default function EyesInSky() {
               <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-4">
                 Real-time storm chasing coverage and professional weather monitoring from across the United States
               </p>
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-4 flex-wrap">
+                <div className="flex bg-white/10 rounded-lg p-1 border border-white/20">
+                  <Button
+                    variant={activeSection === 'streams' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveSection('streams')}
+                    className={`flex items-center gap-2 ${activeSection === 'streams' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                    data-testid="button-streams-tab"
+                  >
+                    <Video className="h-4 w-4" />
+                    Live Streams
+                  </Button>
+                  <Button
+                    variant={activeSection === 'satellite' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveSection('satellite')}
+                    className={`flex items-center gap-2 ${activeSection === 'satellite' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                    data-testid="button-satellite-tab"
+                  >
+                    <Satellite className="h-4 w-4" />
+                    Satellite Intelligence
+                  </Button>
+                </div>
                 <Link to="/eyes-globe">
                   <Button
                     variant="default"
@@ -362,6 +387,13 @@ export default function EyesInSky() {
           </div>
         </FadeIn>
 
+        {activeSection === 'satellite' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" /></div>}>
+            <SatelliteIntelligence />
+          </Suspense>
+        )}
+
+        {activeSection === 'streams' && <>
         {/* Featured Live Streams */}
         {featuredSources.length > 0 && (
           <SlideIn direction="up" delay={0.3}>
@@ -504,6 +536,7 @@ export default function EyesInSky() {
           </p>
         </CardContent>
       </Card>
+      </>}
       <ModuleAIAssistant moduleName="Eyes In The Sky" />
       </div>
     </div>

@@ -1,0 +1,31 @@
+Maxar Technologies — What It Is
+
+Maxar Technologies is (or was) a major U.S. space and satellite technology company focused on Earth observation, geospatial intelligence, and satellite services.
+
+It provided some of the highest-resolution commercial satellite imagery available — often used for mapping, disaster monitoring, climate and environmental tracking, infrastructure planning, and intelligence.
+
+Maxar’s imagery has been widely used in news and research, such as tracking natural disasters or monitoring events like conflicts and infrastructure changes.
+
+In 2025 Maxar reorganized its companies (with its imaging business becoming Vantor), but its satellite imagery legacy continues through platforms and data APIs.
+
+In practice, Maxar imagery can show detailed before-and-after pictures of storms, hurricanes, flooding, and land changes — which is why organizations tracking major weather events often use their satellite data to understand impacts on the ground.
+
+📱 SpyMeSat — Satellite Imagery & Tracking App
+
+SpyMeSat isn’t a satellite itself — it’s a mobile/web application that gives users access to commercial satellite imagery and tracking data.
+
+Here’s what SpyMeSat does:
+
+📍 Satellite Overflight Tracking: It shows when imaging satellites (from providers like Maxar, Planet, etc.) are passing overhead and could capture imagery — essentially telling you when satellites could see a location.
+
+🛰️ Archive Imagery Marketplace: Users can browse and purchase existing satellite images of any location.
+
+🖼️ Tasking New Images: You can request that a satellite take a new image of a specific place (a “tasking request”) — even multiple hours ahead.
+
+So in the storm context, people might use SpyMeSat to quickly get recent high-resolution satellite images of an area affected by a storm, or to see when a satellite might next pass overhead.
+
+🌀 How These Relate to Storm Tracking / Monitoring
+
+Maxar’s satellite imagery is high-resolution and frequently used by analysts, insurers, emergency responders, and media to see damage after a storm or to observe changes over time.
+
+SpyMeSat makes satellite imagery (potentially including Maxar’s images) more accessible to the public or specialists without needing large contracts — letting users see very recent images and even task new ones around storms or disasters.
