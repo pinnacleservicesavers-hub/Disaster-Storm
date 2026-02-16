@@ -101,12 +101,70 @@ html, body, #root { height: 100%; margin: 0; }
   --input: 217 33% 17%;
   --ring: 217 91% 60%;
   
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+
   /* Dark mode storm adjustments */
   --surface: 222 84% 7%;
   --surface-dark: 222 84% 4%;
   --glass-bg: rgba(0, 0, 0, 0.3);
   --glass-border: rgba(255, 255, 255, 0.1);
 }
+
+/* Dark Mode Global Overrides */
+.dark .bg-white { background-color: hsl(222, 84%, 7%) !important; }
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-slate-50,
+.dark .bg-slate-100 { background-color: hsl(222, 84%, 5%) !important; }
+.dark .bg-gray-200,
+.dark .bg-slate-200 { background-color: hsl(217, 33%, 17%) !important; }
+
+.dark .text-gray-900,
+.dark .text-slate-900 { color: hsl(210, 40%, 98%) !important; }
+.dark .text-gray-800,
+.dark .text-slate-800 { color: hsl(210, 40%, 90%) !important; }
+.dark .text-gray-700,
+.dark .text-slate-700 { color: hsl(215, 20%, 75%) !important; }
+.dark .text-gray-600,
+.dark .text-slate-600 { color: hsl(215, 20%, 65%) !important; }
+.dark .text-gray-500,
+.dark .text-slate-500 { color: hsl(215, 20%, 60%) !important; }
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 { border-color: hsl(217, 33%, 20%) !important; }
+
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: hsl(217, 33%, 20%) !important; }
+
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg { --tw-shadow-color: rgba(0, 0, 0, 0.4) !important; }
+
+.dark .ring-gray-200,
+.dark .ring-gray-300 { --tw-ring-color: hsl(217, 33%, 20%) !important; }
+
+.dark input:not([type="range"]),
+.dark textarea,
+.dark select {
+  background-color: hsl(217, 33%, 12%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  border-color: hsl(217, 33%, 22%) !important;
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover { background-color: hsl(217, 33%, 15%) !important; }
+
+.dark table thead { background-color: hsl(222, 84%, 7%) !important; }
+.dark table tbody tr { border-color: hsl(217, 33%, 17%) !important; }
+.dark table tbody tr:hover { background-color: hsl(217, 33%, 12%) !important; }
 
 /* Global Typography - Enterprise Grade */
 body {
@@ -115,6 +173,9 @@ body {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1 {

@@ -6,14 +6,17 @@ import { queryClient } from "./lib/queryClient";
 import App from "./App";
 import "./index.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider showUserSwitcher={false}>
-          <App />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider showUserSwitcher={false}>
+            <App />
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>,

@@ -1,0 +1,98 @@
+What eXACT Recovery™ Is
+
+According to Disaster Program & Operations (DP&O), eXACT Recovery™ is specialized disaster recovery and claims management software used to
+✔ gather, track, and organize data from a disaster response
+✔ document costs, labor, assets, and materials
+✔ prepare and submit FEMA/project worksheets
+✔ manage forms, evidence, photos, and audit documentation
+✔ streamline the recovery reimbursement process
+📍 All in one centralized, secure system.
+
+It is not a data-or file-system recovery tool like O&O DiskRecovery or Recuva — it’s disaster program support software, not file recovery software.
+
+📌 What It Does (Key Functions)
+📁 Centralizes All Disaster Information
+
+All costs, documentation, photos, notes, forms, labor reports, and equipment hours live in one place.
+
+Replaces spreadsheets, email attachments, and manual filing.
+
+📊 Tracks Damage, Costs & Assets
+
+Maintains pre-disaster asset status tied to assessments.
+
+Tracks equipment, crews, labor, materials, contractors, and their reported costs.
+
+Helps reconcile debris, repair costs, and eligible disaster expenses.
+
+📄 Auto-Prepares FEMA & Recovery Worksheets
+
+Streamlines preparation and submittal of FEMA Project Worksheets (PW’s) for all categories A-G.
+
+Attaches supporting documents (photos, reports, cost records).
+
+Reduces duplicated entry and human error.
+
+📥 Reduces Redundancy & Errors
+
+Interfaces with existing systems to avoid re-entering data already stored.
+
+Automates linking of damage, metadata, and cost information.
+
+Helps catch data entry inconsistencies before submission.
+
+📡 Provides Audit Support
+
+Keeps complete, timestamped documentation that FEMA/state auditors require.
+
+Makes review and reconciliation easier during close-out.
+
+🧭 Tracks Communications
+
+Records FEMA and state communications for organizational clarity.
+
+🧠 Why This Matters in Disaster Work
+
+In a disaster response environment, huge amounts of documentation drive reimbursement and compliance:
+
+FEMA and State reimbursement hinges on matching costs with eligible work.
+
+Auditors ask for documentation proving hours, equipment usage, rates, photos, and logs.
+
+If documentation is incomplete or inconsistent, funds can be denied or clawed back.
+
+eXACT Recovery™ organizes, standardizes, and automates that documentation so invoices and submittals are defensible and auditable.
+
+🆚 What It Is Not
+
+This software is not:
+
+❌ A computer data recovery program (like tools such as Recuva, O&O DiskRecovery, PhotoRec, etc.) which recover deleted files from storage drives.
+❌ A general purpose “paperwork bot” that fills out any PDF automatically.
+❌ A personal record vault app like an auto-form-filler extension.
+
+Instead, it is enterprise disaster recovery and claims management software, built specifically for public agencies and contractors to collect, organize, and submit disaster recovery documentation.
+
+🧩 How It Fits Into the “Paperwork Problem”
+
+This software helps solve your “paperwork time drain” issues by:
+
+✔ Providing central storage and searchable documentation
+✔ Linking costs to damage assessments
+✔ Auto-generating required FEMA paperwork
+✔ Preventing double entries and mistakes
+
+But it does not automatically fill every form you own — it fills and organizes disaster recovery forms and claims relevant to FEMA/hazard reimbursement workflows.
+
+📌 Summary
+
+DP&O’s eXACT Recovery™ is a specialized disaster claims support & documentation system that:
+
+Captures, stores, and structures disaster data
+
+Tracks labor, equipment, and costs
+
+Helps prepare FEMA/State reimbursement submissions
+
+Makes audit support easier
+Not a general data recovery or personal auto-form tool.

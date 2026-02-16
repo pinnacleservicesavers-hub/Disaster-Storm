@@ -88,10 +88,12 @@ export interface DamageAnalysisResult {
 }
 
 export class DamageDetectionService {
-  private anthropic: any = null; // Dynamic import, type will be Anthropic
+  private anthropic: any = null;
   private apiKeyAvailable: boolean = false;
   private isProduction: boolean = false;
   private initializationPromise: Promise<void> | null = null;
+  private _creditWarningLogged: boolean = false;
+  private _creditCooldownUntil: number = 0;
 
   constructor() {
     this.isProduction = process.env.NODE_ENV === 'production' || process.env.DISABLE_MOCKS === 'true';
@@ -136,7 +138,13 @@ export class DamageDetectionService {
   async analyzeImageForDamage(imageBuffer: Buffer, cameraLocation?: string): Promise<DamageAnalysisResult> {
     const startTime = Date.now();
     
-    // Check if API key is available
+    // Check credit cooldown to avoid spamming Anthropic
+    if (this._creditCooldownUntil > Date.now()) {
+      const analysisError: any = new Error('AI_CREDITS_LOW: Anthropic API credits need replenishment');
+      analysisError.name = 'AI_ANALYSIS_FAILED';
+      throw analysisError;
+    }
+
     if (!this.apiKeyAvailable) {
       const error = new Error('AI_FEATURE_DISABLED: ANTHROPIC_API_KEY not configured');
       error.name = 'AI_FEATURE_DISABLED';
@@ -200,15 +208,27 @@ export class DamageDetectionService {
       
       return result;
     } catch (error) {
-      console.error('❌ Damage detection analysis failed:', error);
+      // Check for credit/billing errors - suppress log spam and use cooldown
+      const errorMsg = error.message || '';
+      if (errorMsg.includes('credit balance is too low') || errorMsg.includes('billing') || error.status === 402) {
+        if (!this._creditWarningLogged) {
+          console.warn('⚠️ Anthropic API credits low - AI damage detection paused. Add credits to re-enable.');
+          this._creditWarningLogged = true;
+          this._creditCooldownUntil = Date.now() + 300000; // 5 min cooldown
+        }
+        const analysisError: any = new Error('AI_CREDITS_LOW: Anthropic API credits need replenishment');
+        analysisError.name = 'AI_ANALYSIS_FAILED';
+        analysisError.originalError = error;
+        throw analysisError;
+      }
+
+      console.error('❌ Damage detection analysis failed:', error.message || error);
       
-      // Re-throw specific AI service errors to be handled by routes
-      if (error.name === 'AI_FEATURE_DISABLED' || error.message?.includes('AI_FEATURE_DISABLED')) {
+      if (error.name === 'AI_FEATURE_DISABLED' || errorMsg.includes('AI_FEATURE_DISABLED')) {
         throw error;
       }
 
-      // For other API errors (rate limits, network issues, etc.), create a proper error response
-      const analysisError: any = new Error(`AI_ANALYSIS_FAILED: ${error.message || 'Unknown analysis error'}`);
+      const analysisError: any = new Error(`AI_ANALYSIS_FAILED: ${errorMsg || 'Unknown analysis error'}`);
       analysisError.name = 'AI_ANALYSIS_FAILED';
       analysisError.originalError = error;
       

@@ -171,13 +171,20 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 export default function App() {
-  const user = getStoredUser();
   const location = useLocation();
   
   // Public routes that don't need auth
   const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing', '/workhub/customer', '/privacy', '/terms', '/disclaimers', '/data-sources', '/security'].includes(location.pathname);
   
-  // Show TopNav only for authenticated users
+  // Auto-create dev user if none exists (ensures TopNav is always available for non-public routes)
+  let user = getStoredUser();
+  if (!user && !isPublicRoute) {
+    const devUser = { id: 'admin-001', username: 'admin_user', email: 'admin@disasterdirect.com', role: 'admin' as const };
+    localStorage.setItem('auth_user', JSON.stringify(devUser));
+    user = devUser;
+  }
+  
+  // Show TopNav only for authenticated users on non-public routes
   const showNav = user && !isPublicRoute;
   
   return (

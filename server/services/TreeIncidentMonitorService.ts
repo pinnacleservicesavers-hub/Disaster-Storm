@@ -8,8 +8,8 @@ interface DetectedIncident {
   county?: string;
   city?: string;
   address: string;
-  latitude?: string;
-  longitude?: string;
+  latitude?: string | number;
+  longitude?: string | number;
   nearestIntersection?: string;
   impactType: string;
   priority: 'immediate' | 'high' | 'medium' | 'low';
@@ -252,23 +252,24 @@ class TreeIncidentMonitorService {
       const prefix = incident.city?.substring(0, 5).toUpperCase() || incident.state;
       const uniqueId = `${prefix}-${Date.now().toString(36).toUpperCase()}`;
 
+      const truncate = (val: string | undefined, maxLen: number) => val ? val.substring(0, maxLen) : undefined;
+
       const [newIncident] = await db.insert(treeIncidents).values({
-        id: randomUUID(),
-        uniqueId,
-        state: incident.state,
-        county: incident.county || '',
-        city: incident.city || '',
-        address: incident.address,
-        latitude: incident.latitude || '',
-        longitude: incident.longitude || '',
-        nearestIntersection: incident.nearestIntersection,
-        impactType: incident.impactType,
+        uniqueId: uniqueId.substring(0, 50),
+        state: (incident.state || '').substring(0, 50),
+        county: (incident.county || '').substring(0, 100),
+        city: (incident.city || '').substring(0, 100),
+        address: (incident.address || '').substring(0, 255),
+        latitude: String(parseFloat(String(incident.latitude || '0')) || 0),
+        longitude: String(parseFloat(String(incident.longitude || '0')) || 0),
+        nearestIntersection: truncate(incident.nearestIntersection, 255),
+        impactType: (incident.impactType || 'unknown').substring(0, 50),
         priority: incident.priority,
         confidenceScore: incident.confidenceScore,
-        failureMode: incident.failureMode,
-        weatherConditions: incident.weatherConditions,
-        sourceImagery: incident.source,
-        notes: incident.sourceUrl ? `Source: ${incident.sourceUrl}` : undefined,
+        failureMode: truncate(incident.failureMode, 50),
+        weatherConditions: truncate(incident.weatherConditions, 255),
+        sourceImagery: truncate(incident.source, 100),
+        notes: incident.sourceUrl ? `Source: ${incident.sourceUrl}`.substring(0, 1000) : undefined,
         status: 'new',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -337,20 +338,19 @@ class TreeIncidentMonitorService {
   private async createInAppNotification(incident: any) {
     try {
       await db.insert(appNotifications).values({
-        id: randomUUID(),
-        type: 'tree_incident',
+        notificationType: 'tree_incident',
         priority: incident.priority,
         title: `🌳 Tree Down: ${incident.city || incident.county}, ${incident.state}`,
-        message: `${incident.impactType.replace(/_/g, ' ')} detected. ${incident.probableCause || 'Review for deployment opportunity.'}`,
-        data: JSON.stringify({
+        message: `${incident.impactType?.replace(/_/g, ' ') || 'Incident'} detected. ${incident.probableCause || 'Review for deployment opportunity.'}`,
+        metadata: {
           incidentId: incident.id,
           state: incident.state,
           city: incident.city,
           impactType: incident.impactType
-        }),
+        },
+        relatedType: 'tree_incident',
+        relatedId: incident.id,
         actionUrl: `/tree-tracker/${incident.id}`,
-        isRead: false,
-        isDismissed: false,
         createdAt: new Date()
       });
     } catch (error) {

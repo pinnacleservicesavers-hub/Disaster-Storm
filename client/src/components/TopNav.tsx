@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { LogOut, LogIn } from 'lucide-react';
+import { LogOut, LogIn, Moon, Sun } from 'lucide-react';
 import { auth, type Role } from '@/lib/auth';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TopNav() {
+  const { theme, toggleTheme } = useTheme();
   const [role, setRole] = useState<Role>('contractor');
   const [user, setUser] = useState('user');
   const [hasToken, setHasToken] = useState(false);
@@ -123,8 +125,16 @@ export default function TopNav() {
               )}
             </nav>
 
-            {/* Right Side - Notifications + Auth Controls */}
+            {/* Right Side - Theme + Notifications + Auth Controls */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                data-testid="dark-mode-toggle"
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
               <NotificationBell />
               {!hasToken ? (
                 <button
@@ -140,7 +150,7 @@ export default function TopNav() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-white/90 hidden sm:inline">Role:</span>
                     <select 
-                      className="border rounded-md px-2 py-1 text-sm bg-white text-gray-900 font-medium" 
+                      className="border rounded-md px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium" 
                       value={role} 
                       onChange={(e) => updateRole(e.target.value as Role)}
                       data-testid="role-selector"
@@ -154,7 +164,7 @@ export default function TopNav() {
                   <div className="hidden md:flex items-center gap-2">
                     <span className="text-sm text-white/90">User:</span>
                     <input 
-                      className="border rounded-md px-2 py-1 text-sm bg-white text-gray-900 w-32" 
+                      className="border rounded-md px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-32" 
                       defaultValue={user} 
                       onBlur={(e) => updateUser(e.target.value)}
                       data-testid="user-input"

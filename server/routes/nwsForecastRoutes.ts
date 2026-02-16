@@ -163,4 +163,38 @@ router.get('/forecast/hourly', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/alerts', async (req: Request, res: Response) => {
+  try {
+    const { state, area, event } = req.query;
+    let url = 'https://api.weather.gov/alerts/active?status=actual';
+    if (state) url += `&area=${state}`;
+    if (area) url += `&area=${area}`;
+    if (event) url += `&event=${encodeURIComponent(event as string)}`;
+
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'DisasterDirect/1.0', 'Accept': 'application/geo+json' }
+    });
+    if (!response.ok) {
+      return res.json({ success: true, alerts: [] });
+    }
+    const data = await response.json();
+    const alerts = (data.features || []).slice(0, 200).map((f: any) => ({
+      id: f.properties?.id || f.id,
+      event: f.properties?.event,
+      headline: f.properties?.headline,
+      severity: f.properties?.severity,
+      urgency: f.properties?.urgency,
+      certainty: f.properties?.certainty,
+      areaDesc: f.properties?.areaDesc,
+      onset: f.properties?.onset,
+      expires: f.properties?.expires,
+      senderName: f.properties?.senderName,
+    }));
+    res.json({ success: true, alerts });
+  } catch (error: any) {
+    console.error('NWS alerts error:', error.message);
+    res.json({ success: true, alerts: [] });
+  }
+});
+
 export default router;

@@ -828,4 +828,36 @@ router.get('/predictions/intelligence', async (req, res) => {
   }
 });
 
+// ===== ACTIVE ALERTS (NWS active alerts for dashboard) =====
+router.get('/alerts', async (req, res) => {
+  try {
+    const url = 'https://api.weather.gov/alerts/active?status=actual&urgency=Immediate,Expected';
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'DisasterDirect/1.0', 'Accept': 'application/geo+json' }
+    });
+    if (!response.ok) {
+      return res.json([]);
+    }
+    const data: any = await response.json();
+    const alerts = (data.features || []).slice(0, 100).map((f: any) => ({
+      id: f.properties?.id || f.id,
+      event: f.properties?.event,
+      headline: f.properties?.headline,
+      description: f.properties?.description,
+      severity: f.properties?.severity,
+      urgency: f.properties?.urgency,
+      certainty: f.properties?.certainty,
+      areaDesc: f.properties?.areaDesc,
+      onset: f.properties?.onset,
+      expires: f.properties?.expires,
+      senderName: f.properties?.senderName,
+      geometry: f.geometry
+    }));
+    res.json(alerts);
+  } catch (error: any) {
+    console.error('Hazard alerts error:', error.message);
+    res.json([]);
+  }
+});
+
 export default router;

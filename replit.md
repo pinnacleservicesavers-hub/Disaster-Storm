@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX
-The platform features an enterprise-grade design system with AI-selected backgrounds, module-specific themes, and comprehensive design tokens. Key components include `ModuleHero`, `ModuleWrapper`, `ModuleAIAssistant` (floating AI chat with text and voice modes), and `StateCitySelector`. The aesthetic emphasizes enhanced typography, glass morphism effects, and enterprise shadows. A universal AI assistant provides module-specific context. Navigation includes a global sticky `TopNav`, auto-generated breadcrumbs, and a pluggable authentication system.
+The platform features an enterprise-grade design system with AI-selected backgrounds, module-specific themes, and comprehensive design tokens. Key components include `ModuleHero`, `ModuleWrapper`, `ModuleAIAssistant` (floating AI chat with text and voice modes), and `StateCitySelector`. The aesthetic emphasizes enhanced typography, glass morphism effects, and enterprise shadows. A universal AI assistant provides module-specific context. Navigation includes a global sticky `TopNav`, auto-generated breadcrumbs, and a pluggable authentication system. **Dark Mode**: Full dark mode support via `ThemeProvider` context (`client/src/contexts/ThemeContext.tsx`) with localStorage persistence (key: `disaster-direct-theme`), toggle button in TopNav, and comprehensive CSS variable overrides in `index.css`. Tailwind `darkMode: ["class"]` is used.
 
 ### Technical Implementations
 - **Frontend**: React 18, TypeScript, Vite, React Router DOM (v6), Shadcn/ui (Radix UI + Tailwind CSS), TanStack Query, WebSocket integration, and context-based internationalization.
