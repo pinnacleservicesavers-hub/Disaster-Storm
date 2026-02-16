@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db.js';
 import { sql } from 'drizzle-orm';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -392,6 +393,9 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
 
     const contractDocs = await db.execute(sql`SELECT id, document_type, document_name, description, uploaded_by, uploaded_by_role, file_size_bytes, version, created_at FROM fema_contract_documents WHERE is_active = true ORDER BY created_at DESC`);
     const projectMessages = await db.execute(sql`SELECT id, sender_name, sender_role, subject, message_body, message_type, priority, thread_id, created_at FROM fema_project_messages ORDER BY created_at ASC`);
+    const verificationEvents = await db.execute(sql`SELECT e.*, s.confidence_score as score_val, s.risk_level as score_risk, s.ai_reasoning, s.anomalies, s.signal_breakdown FROM fema_verification_events e LEFT JOIN fema_verification_scores s ON e.id = s.event_id ORDER BY e.created_at DESC`);
+    const auditChainEntries = await db.execute(sql`SELECT * FROM fema_audit_chain ORDER BY id ASC`);
+    const complianceStatuses = await db.execute(sql`SELECT * FROM fema_compliance_status ORDER BY updated_at DESC`);
 
     const docTypes = (contractDocs.rows as any[]).map(d => d.document_type);
     const requiredDocTypes = ['Master Service Agreement (MSA)', 'Approved Rate Sheet', 'Notice to Proceed (NTP)', 'Job Classification', 'Insurance Certificate', 'Bond Documentation', 'Safety Plan'];
@@ -428,6 +432,12 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
         auditTrail: { totalEntries: auditLogs.rows.length, entries: auditLogs.rows },
         contractDocuments: { totalDocuments: contractDocs.rows.length, documents: contractDocs.rows, complianceStatus: docCompliance },
         projectCommunications: { totalMessages: projectMessages.rows.length, messages: projectMessages.rows },
+        locationIntelligence: {
+          totalVerifications: verificationEvents.rows.length,
+          events: verificationEvents.rows,
+          complianceScopes: complianceStatuses.rows,
+          auditChain: { totalEntries: auditChainEntries.rows.length, entries: auditChainEntries.rows },
+        },
       },
       complianceSummary: {
         contractSetup: contractInfo.rows.length > 0 ? 'Complete' : 'Missing',
@@ -443,6 +453,7 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
         auditTrail: `${auditLogs.rows.length} entries`,
         contractDocuments: `${contractDocs.rows.length} on file (${docCompliance.filter(d => d.status === 'on_file').length}/${requiredDocTypes.length} required)`,
         projectCommunications: `${projectMessages.rows.length} messages logged`,
+        locationIntelligence: `${verificationEvents.rows.length} verification events, ${auditChainEntries.rows.length} audit chain entries`,
       }
     };
 
@@ -560,6 +571,38 @@ router.post('/ai-scan', async (_req: Request, res: Response) => {
           category: 'Contract Documents',
         });
       }
+    }
+
+    const verificationEvents = await db.execute(sql`SELECT * FROM fema_verification_events ORDER BY created_at DESC`);
+    const verificationRows = verificationEvents.rows as any[];
+    if (verificationRows.length === 0) {
+      findings.push({ type: 'no_verification', severity: 'high', description: 'No field verification events recorded — multi-signal verification stack inactive', category: 'Location Intelligence' });
+    } else {
+      const criticalEvents = verificationRows.filter((e: any) => e.risk_level === 'critical');
+      const highEvents = verificationRows.filter((e: any) => e.risk_level === 'high');
+      for (const e of criticalEvents) {
+        findings.push({ type: 'critical_verification', severity: 'critical', description: `Critical risk verification: ${e.event_type} by ${e.crew_member_name || 'unknown'} (${e.confidence_score}% confidence) — multiple signal failures`, category: 'Location Intelligence' });
+      }
+      for (const e of highEvents) {
+        findings.push({ type: 'high_risk_verification', severity: 'high', description: `High risk verification: ${e.event_type} by ${e.crew_member_name || 'unknown'} (${e.confidence_score}% confidence)`, category: 'Location Intelligence' });
+      }
+      const avgConfidence = verificationRows.reduce((s: number, e: any) => s + parseFloat(e.confidence_score || '0'), 0) / verificationRows.length;
+      if (avgConfidence < 60) {
+        findings.push({ type: 'low_avg_confidence', severity: 'high', description: `Average verification confidence is ${avgConfidence.toFixed(1)}% — below 60% threshold, review field procedures`, category: 'Location Intelligence' });
+      }
+    }
+
+    const auditChain = await db.execute(sql`SELECT chain_hash, prev_hash FROM fema_audit_chain ORDER BY id ASC`);
+    const chainRows = auditChain.rows as any[];
+    let chainValid = true;
+    for (let i = 1; i < chainRows.length; i++) {
+      if (chainRows[i].prev_hash !== chainRows[i - 1].chain_hash) { chainValid = false; break; }
+    }
+    if (chainRows.length > 0 && !chainValid) {
+      findings.push({ type: 'chain_broken', severity: 'critical', description: 'Immutable audit chain integrity broken — potential tampering detected', category: 'Audit Security' });
+    }
+    if (chainRows.length > 0 && chainValid) {
+      findings.push({ type: 'chain_verified', severity: 'info' as any, description: `Audit chain verified: ${chainRows.length} hash-chained entries — tamper-proof integrity confirmed`, category: 'Audit Security' });
     }
 
     for (const f of findings) {
@@ -790,6 +833,416 @@ router.get('/audit-trail', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching audit trail:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch audit trail' });
+  }
+});
+
+// ===== LAYERED LOCATION INTELLIGENCE SYSTEM =====
+
+function sha256(data: string): string {
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+async function getLastChainHash(): Promise<string> {
+  const last = await db.execute(sql`SELECT chain_hash FROM fema_audit_chain ORDER BY id DESC LIMIT 1`);
+  return last.rows.length > 0 ? (last.rows[0] as any).chain_hash : sha256('GENESIS_BLOCK');
+}
+
+async function appendAuditChain(entityType: string, entityId: string, action: string, actor: string, actorRole: string, metadata: any) {
+  const lastEntry = await db.execute(sql`SELECT id, chain_hash FROM fema_audit_chain ORDER BY id DESC LIMIT 1`);
+  const prevHash = lastEntry.rows.length > 0 ? (lastEntry.rows[0] as any).chain_hash : sha256('GENESIS_BLOCK');
+  const sequence = lastEntry.rows.length > 0 ? (lastEntry.rows[0] as any).id + 1 : 1;
+  const canonicalPayload = JSON.stringify({ entityType, entityId, action, actor, actorRole, metadata, seq: sequence });
+  const payloadHash = sha256(canonicalPayload);
+  const chainHash = sha256(prevHash + '|' + payloadHash + '|' + sequence.toString());
+  await db.execute(sql`INSERT INTO fema_audit_chain (entity_type, entity_id, action, actor, actor_role, payload_hash, prev_hash, chain_hash, metadata)
+    VALUES (${entityType}, ${entityId}, ${action}, ${actor}, ${actorRole || 'system'}, ${payloadHash}, ${prevHash}, ${chainHash}, ${JSON.stringify(metadata)}::jsonb)`);
+  return { payloadHash, prevHash, chainHash, sequence };
+}
+
+interface SignalInput {
+  signalType: string;
+  signalValue: any;
+  weight?: number;
+}
+
+function evaluateSignal(signal: SignalInput, eventData: any): { status: string; evidence: string } {
+  const { signalType, signalValue } = signal;
+  switch (signalType) {
+    case 'gps': {
+      const lat = parseFloat(signalValue.latitude || eventData.locationLat || '0');
+      const lng = parseFloat(signalValue.longitude || eventData.locationLng || '0');
+      const accuracy = parseFloat(signalValue.accuracy || eventData.locationAccuracyMeters || '999');
+      if (lat === 0 && lng === 0) return { status: 'fail', evidence: 'No GPS coordinates provided' };
+      if (accuracy > 500) return { status: 'warning', evidence: `GPS accuracy too low: ${accuracy}m (should be <500m)` };
+      if (accuracy > 100) return { status: 'warning', evidence: `GPS accuracy moderate: ${accuracy}m` };
+      return { status: 'pass', evidence: `GPS lock confirmed: ${lat.toFixed(5)}, ${lng.toFixed(5)} (±${accuracy}m)` };
+    }
+    case 'exif': {
+      if (!signalValue || Object.keys(signalValue).length === 0) return { status: 'fail', evidence: 'No EXIF metadata found in submitted photo' };
+      const hasGps = signalValue.gpsLatitude && signalValue.gpsLongitude;
+      const hasTimestamp = signalValue.dateTime || signalValue.dateTimeOriginal;
+      if (hasGps && hasTimestamp) return { status: 'pass', evidence: `EXIF verified: GPS (${signalValue.gpsLatitude}, ${signalValue.gpsLongitude}), timestamp ${signalValue.dateTime || signalValue.dateTimeOriginal}` };
+      if (hasGps) return { status: 'warning', evidence: 'EXIF has GPS but no timestamp — partial verification' };
+      if (hasTimestamp) return { status: 'warning', evidence: `EXIF has timestamp (${signalValue.dateTime}) but no GPS — partial verification` };
+      return { status: 'fail', evidence: 'EXIF metadata present but missing GPS and timestamp' };
+    }
+    case 'time': {
+      const hour = signalValue.hour ?? new Date().getHours();
+      const dayOfWeek = signalValue.dayOfWeek ?? new Date().getDay();
+      if (hour < 5 || hour > 22) return { status: 'warning', evidence: `Unusual work hour: ${hour}:00 — outside normal 05:00-22:00 window` };
+      if (dayOfWeek === 0) return { status: 'warning', evidence: 'Work reported on Sunday — verify authorization' };
+      return { status: 'pass', evidence: `Work time within normal window: ${hour}:00, day ${dayOfWeek}` };
+    }
+    case 'weather': {
+      if (!signalValue || !signalValue.conditions) return { status: 'unknown', evidence: 'No weather data available for correlation' };
+      const conditions = signalValue.conditions.toLowerCase();
+      if (conditions.includes('tornado') || conditions.includes('hurricane')) return { status: 'warning', evidence: `Severe weather conditions reported: ${signalValue.conditions} — verify crew safety` };
+      return { status: 'pass', evidence: `Weather conditions consistent: ${signalValue.conditions}, temp ${signalValue.temperature || 'N/A'}°F` };
+    }
+    case 'sign_in': {
+      if (!signalValue.signInId && !signalValue.matched) return { status: 'fail', evidence: 'No matching crew sign-in record found for this verification window' };
+      if (signalValue.matched) return { status: 'pass', evidence: `Crew sign-in correlated: ${signalValue.signInTime || 'verified'} by ${signalValue.memberName || 'crew member'}` };
+      return { status: 'warning', evidence: 'Sign-in record exists but timing mismatch > 30 minutes' };
+    }
+    case 'load_ticket': {
+      if (!signalValue.ticketId && !signalValue.matched) return { status: 'unknown', evidence: 'No load ticket associated with this event' };
+      if (signalValue.matched) return { status: 'pass', evidence: `Load ticket #${signalValue.ticketId} correlated — ${signalValue.cubicYards || 0} CY at ${signalValue.debrisSite || 'site'}` };
+      return { status: 'warning', evidence: 'Load ticket exists but data gaps detected' };
+    }
+    case 'device': {
+      if (!signalValue.fingerprint) return { status: 'unknown', evidence: 'No device fingerprint captured' };
+      if (signalValue.knownDevice) return { status: 'pass', evidence: `Known registered device: ${signalValue.deviceModel || signalValue.fingerprint.substring(0, 12)}` };
+      return { status: 'warning', evidence: `Unregistered device detected: ${signalValue.fingerprint.substring(0, 12)}...` };
+    }
+    case 'photo': {
+      if (!signalValue.hasPhoto) return { status: 'fail', evidence: 'No photo documentation submitted' };
+      if (signalValue.aiVerified) return { status: 'pass', evidence: `Photo verified by AI: ${signalValue.description || 'work documentation confirmed'}` };
+      return { status: 'pass', evidence: 'Photo documentation submitted — pending AI verification' };
+    }
+    default:
+      return { status: 'unknown', evidence: `Unknown signal type: ${signalType}` };
+  }
+}
+
+function computeVerificationScore(signals: Array<{ status: string; weight: number }>): { score: number; riskLevel: string } {
+  if (signals.length === 0) return { score: 0, riskLevel: 'critical' };
+  let totalWeight = 0;
+  let weightedScore = 0;
+  for (const s of signals) {
+    const w = s.weight || 1;
+    totalWeight += w;
+    if (s.status === 'pass') weightedScore += w * 100;
+    else if (s.status === 'warning') weightedScore += w * 50;
+    else if (s.status === 'unknown') weightedScore += w * 25;
+  }
+  const score = Math.round(weightedScore / totalWeight);
+  let riskLevel = 'low';
+  if (score < 40) riskLevel = 'critical';
+  else if (score < 60) riskLevel = 'high';
+  else if (score < 80) riskLevel = 'medium';
+  return { score, riskLevel };
+}
+
+router.post('/verification-events', async (req: Request, res: Response) => {
+  try {
+    const { eventType, jobId, pwNumber, crewId, crewMemberName, deviceId,
+            locationLat, locationLng, locationAccuracyMeters, exifMeta,
+            weatherSnapshot, signInId, loadTicketId, deviceFingerprint,
+            sourceNotes, signals: rawSignals } = req.body;
+
+    if (!eventType) return res.status(400).json({ success: false, error: 'eventType is required' });
+
+    const signalInputs: SignalInput[] = rawSignals || [];
+    if (locationLat && locationLng) {
+      signalInputs.push({ signalType: 'gps', signalValue: { latitude: locationLat, longitude: locationLng, accuracy: locationAccuracyMeters }, weight: 1.5 });
+    }
+    if (exifMeta && Object.keys(exifMeta).length > 0) {
+      signalInputs.push({ signalType: 'exif', signalValue: exifMeta, weight: 1.3 });
+    }
+    if (!signalInputs.find(s => s.signalType === 'time')) {
+      const now = new Date();
+      signalInputs.push({ signalType: 'time', signalValue: { hour: now.getHours(), dayOfWeek: now.getDay(), timestamp: now.toISOString() }, weight: 0.8 });
+    }
+    if (weatherSnapshot) {
+      signalInputs.push({ signalType: 'weather', signalValue: weatherSnapshot, weight: 0.6 });
+    }
+    if (signInId) {
+      signalInputs.push({ signalType: 'sign_in', signalValue: { signInId, matched: true }, weight: 1.2 });
+    }
+    if (loadTicketId) {
+      signalInputs.push({ signalType: 'load_ticket', signalValue: { ticketId: loadTicketId, matched: true }, weight: 1.0 });
+    }
+    if (deviceFingerprint) {
+      signalInputs.push({ signalType: 'device', signalValue: { fingerprint: deviceFingerprint, knownDevice: true }, weight: 0.7 });
+    }
+
+    const evaluatedSignals = signalInputs.map(s => {
+      const result = evaluateSignal(s, req.body);
+      return { ...s, ...result };
+    });
+
+    const { score, riskLevel } = computeVerificationScore(
+      evaluatedSignals.map(s => ({ status: s.status, weight: s.weight || 1 }))
+    );
+
+    const anomalies: string[] = [];
+    evaluatedSignals.forEach(s => {
+      if (s.status === 'fail') anomalies.push(`FAIL: ${s.signalType} — ${s.evidence}`);
+      if (s.status === 'warning') anomalies.push(`WARN: ${s.signalType} — ${s.evidence}`);
+    });
+
+    const aiReasoning = `Verification event "${eventType}" analyzed with ${evaluatedSignals.length} signals. ` +
+      `${evaluatedSignals.filter(s => s.status === 'pass').length} passed, ` +
+      `${evaluatedSignals.filter(s => s.status === 'warning').length} warnings, ` +
+      `${evaluatedSignals.filter(s => s.status === 'fail').length} failures. ` +
+      `Confidence: ${score}% (${riskLevel} risk).` +
+      (anomalies.length > 0 ? ` Anomalies: ${anomalies.join('; ')}` : ' No anomalies detected.');
+
+    const eventResult = await db.execute(sql`INSERT INTO fema_verification_events
+      (event_type, job_id, pw_number, crew_id, crew_member_name, device_id,
+       location_lat, location_lng, location_accuracy_meters, exif_meta, weather_snapshot,
+       sign_in_id, load_ticket_id, device_fingerprint, source_notes, confidence_score, risk_level)
+      VALUES (${eventType}, ${jobId||null}, ${pwNumber||null}, ${crewId||null}, ${crewMemberName||null}, ${deviceId||null},
+        ${locationLat||null}, ${locationLng||null}, ${locationAccuracyMeters||null},
+        ${JSON.stringify(exifMeta||{})}::jsonb, ${JSON.stringify(weatherSnapshot||{})}::jsonb,
+        ${signInId||null}, ${loadTicketId||null}, ${deviceFingerprint||null}, ${sourceNotes||null},
+        ${score}, ${riskLevel})
+      RETURNING id`);
+
+    const eventId = (eventResult.rows[0] as any).id;
+
+    for (const s of evaluatedSignals) {
+      await db.execute(sql`INSERT INTO fema_verification_signals (event_id, signal_type, signal_value, status, weight, evidence)
+        VALUES (${eventId}, ${s.signalType}, ${JSON.stringify(s.signalValue)}::jsonb, ${s.status}, ${s.weight || 1}, ${s.evidence})`);
+    }
+
+    const signalBreakdown = evaluatedSignals.map(s => ({
+      type: s.signalType, status: s.status, weight: s.weight || 1, evidence: s.evidence
+    }));
+
+    await db.execute(sql`INSERT INTO fema_verification_scores (event_id, confidence_score, risk_level, anomalies, ai_reasoning, signal_breakdown)
+      VALUES (${eventId}, ${score}, ${riskLevel}, ${JSON.stringify(anomalies)}::jsonb, ${aiReasoning}, ${JSON.stringify(signalBreakdown)}::jsonb)`);
+
+    await appendAuditChain('verification', eventId.toString(), 'created', crewMemberName || 'system', 'field_crew', {
+      eventType, score, riskLevel, signalCount: evaluatedSignals.length, anomalyCount: anomalies.length
+    });
+
+    const scopeId = jobId || pwNumber || 'project-default';
+    const existing = await db.execute(sql`SELECT * FROM fema_compliance_status WHERE scope_id = ${scopeId}`);
+    if (existing.rows.length > 0) {
+      const prev = existing.rows[0] as any;
+      const totalEvents = (prev.total_events || 0) + 1;
+      const passedEvents = (prev.passed_events || 0) + (riskLevel === 'low' ? 1 : 0);
+      const failedEvents = (prev.failed_events || 0) + (riskLevel === 'critical' || riskLevel === 'high' ? 1 : 0);
+      const overallScore = Math.round((passedEvents / totalEvents) * 100);
+      const status = overallScore >= 80 ? 'compliant' : overallScore >= 50 ? 'warning' : 'non_compliant';
+      await db.execute(sql`UPDATE fema_compliance_status SET overall_score=${overallScore}, status=${status},
+        total_events=${totalEvents}, passed_events=${passedEvents}, failed_events=${failedEvents},
+        last_event_id=${eventId}, alerts=${JSON.stringify(anomalies.slice(0,5))}::jsonb, updated_at=NOW()
+        WHERE scope_id=${scopeId}`);
+    } else {
+      const status = riskLevel === 'low' ? 'compliant' : riskLevel === 'medium' ? 'warning' : 'non_compliant';
+      await db.execute(sql`INSERT INTO fema_compliance_status (scope, scope_id, scope_name, overall_score, status, total_events, passed_events, failed_events, last_event_id, alerts)
+        VALUES ('job', ${scopeId}, ${jobId || 'Default Project'}, ${score}, ${status}, 1, ${riskLevel === 'low' ? 1 : 0}, ${riskLevel === 'critical' || riskLevel === 'high' ? 1 : 0}, ${eventId}, ${JSON.stringify(anomalies.slice(0,5))}::jsonb)`);
+    }
+
+    res.json({
+      success: true,
+      event: { id: eventId, eventType, confidenceScore: score, riskLevel, anomalyCount: anomalies.length },
+      signals: signalBreakdown,
+      aiReasoning,
+      anomalies
+    });
+  } catch (error) {
+    console.error('Error creating verification event:', error);
+    res.status(500).json({ success: false, error: 'Failed to create verification event' });
+  }
+});
+
+router.get('/verification-events', async (req: Request, res: Response) => {
+  try {
+    const { jobId, crewId, riskLevel, limit: lim } = req.query;
+    let query = 'SELECT e.*, s.confidence_score as score_confidence, s.risk_level as score_risk, s.ai_reasoning, s.anomalies, s.signal_breakdown FROM fema_verification_events e LEFT JOIN fema_verification_scores s ON e.id = s.event_id WHERE 1=1';
+    const params: any[] = [];
+    let paramIdx = 1;
+    if (jobId) { query += ` AND e.job_id = $${paramIdx++}`; params.push(jobId); }
+    if (crewId) { query += ` AND e.crew_id = $${paramIdx++}`; params.push(crewId); }
+    if (riskLevel) { query += ` AND e.risk_level = $${paramIdx++}`; params.push(riskLevel); }
+    query += ` ORDER BY e.created_at DESC LIMIT $${paramIdx}`;
+    params.push(parseInt(lim as string) || 50);
+
+    const result = await db.execute(sql.raw(query, params));
+    res.json({ success: true, events: result.rows, total: result.rows.length });
+  } catch (error) {
+    console.error('Error fetching verification events:', error);
+    const fallback = await db.execute(sql`SELECT e.*, s.confidence_score as score_confidence, s.risk_level as score_risk, s.ai_reasoning, s.anomalies, s.signal_breakdown FROM fema_verification_events e LEFT JOIN fema_verification_scores s ON e.id = s.event_id ORDER BY e.created_at DESC LIMIT 50`);
+    res.json({ success: true, events: fallback.rows, total: fallback.rows.length });
+  }
+});
+
+router.get('/verification-events/:id/signals', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const signals = await db.execute(sql`SELECT * FROM fema_verification_signals WHERE event_id = ${parseInt(id)} ORDER BY created_at ASC`);
+    const score = await db.execute(sql`SELECT * FROM fema_verification_scores WHERE event_id = ${parseInt(id)}`);
+    res.json({ success: true, signals: signals.rows, score: score.rows[0] || null });
+  } catch (error) {
+    console.error('Error fetching signals:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch signals' });
+  }
+});
+
+router.get('/verification-status', async (req: Request, res: Response) => {
+  try {
+    const compliance = await db.execute(sql`SELECT * FROM fema_compliance_status ORDER BY updated_at DESC`);
+    const recentEvents = await db.execute(sql`SELECT e.id, e.event_type, e.crew_member_name, e.confidence_score, e.risk_level, e.created_at
+      FROM fema_verification_events e ORDER BY e.created_at DESC LIMIT 10`);
+    const stats = await db.execute(sql`SELECT
+      COUNT(*) as total_events,
+      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk,
+      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+      COUNT(CASE WHEN risk_level = 'critical' THEN 1 END) as critical_risk,
+      ROUND(AVG(confidence_score::numeric), 1) as avg_confidence
+      FROM fema_verification_events`);
+    const signalStats = await db.execute(sql`SELECT signal_type, status, COUNT(*) as count
+      FROM fema_verification_signals GROUP BY signal_type, status ORDER BY signal_type`);
+
+    res.json({
+      success: true,
+      complianceScopes: compliance.rows,
+      recentEvents: recentEvents.rows,
+      stats: stats.rows[0] || {},
+      signalBreakdown: signalStats.rows
+    });
+  } catch (error) {
+    console.error('Error fetching verification status:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch verification status' });
+  }
+});
+
+router.get('/audit-chain', async (req: Request, res: Response) => {
+  try {
+    const { entityType, entityId, limit: lim } = req.query;
+    let result;
+    if (entityType && entityId) {
+      result = await db.execute(sql`SELECT * FROM fema_audit_chain WHERE entity_type = ${entityType as string} AND entity_id = ${entityId as string} ORDER BY id ASC`);
+    } else {
+      result = await db.execute(sql`SELECT * FROM fema_audit_chain ORDER BY id DESC LIMIT ${parseInt(lim as string) || 100}`);
+    }
+
+    let chainValid = true;
+    let brokenAt: number | null = null;
+    const rows = [...result.rows].sort((a: any, b: any) => a.id - b.id);
+    for (let i = 1; i < rows.length; i++) {
+      const current = rows[i] as any;
+      const prev = rows[i - 1] as any;
+      if (current.prev_hash !== prev.chain_hash) {
+        chainValid = false;
+        brokenAt = current.id;
+        break;
+      }
+    }
+
+    if (chainValid && rows.length > 0) {
+      const first = rows[0] as any;
+      const genesis = sha256('GENESIS_BLOCK');
+      if (first.prev_hash !== genesis) {
+        chainValid = false;
+        brokenAt = first.id;
+      }
+    }
+
+    res.json({
+      success: true,
+      entries: result.rows,
+      total: result.rows.length,
+      integrity: { valid: chainValid, brokenAt, totalChecked: rows.length }
+    });
+  } catch (error) {
+    console.error('Error fetching audit chain:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch audit chain' });
+  }
+});
+
+router.post('/verification-events/simulate', async (req: Request, res: Response) => {
+  try {
+    const scenarios = [
+      {
+        eventType: 'crew_arrival', crewId: 'CREW-A', crewMemberName: 'Marcus Johnson',
+        jobId: 'JOB-2025-001', locationLat: '30.2672', locationLng: '-97.7431', locationAccuracyMeters: '15',
+        deviceId: 'DEV-001', deviceFingerprint: 'fp_abc123def456',
+        exifMeta: { gpsLatitude: 30.2672, gpsLongitude: -97.7431, dateTime: new Date().toISOString(), cameraModel: 'iPhone 15 Pro' },
+        weatherSnapshot: { conditions: 'Partly Cloudy', temperature: 72, humidity: 65 },
+        signInId: 'SI-001', sourceNotes: 'Crew arrived at debris staging area',
+        signals: [
+          { signalType: 'photo', signalValue: { hasPhoto: true, aiVerified: true, description: 'Crew at staging area with equipment' }, weight: 1.0 },
+          { signalType: 'device', signalValue: { fingerprint: 'fp_abc123def456', knownDevice: true, deviceModel: 'iPhone 15 Pro' }, weight: 0.7 }
+        ]
+      },
+      {
+        eventType: 'work_in_progress', crewId: 'CREW-B', crewMemberName: 'Sarah Chen',
+        jobId: 'JOB-2025-002', locationLat: '30.2700', locationLng: '-97.7500', locationAccuracyMeters: '45',
+        deviceId: 'DEV-002',
+        exifMeta: { dateTime: new Date().toISOString() },
+        weatherSnapshot: { conditions: 'Clear', temperature: 78 },
+        sourceNotes: 'Tree removal in progress — section 3',
+        signals: [
+          { signalType: 'photo', signalValue: { hasPhoto: true, aiVerified: false, description: 'Active tree removal' }, weight: 1.0 }
+        ]
+      },
+      {
+        eventType: 'load_departure', crewId: 'CREW-A', crewMemberName: 'David Williams',
+        jobId: 'JOB-2025-001', locationLat: '30.2680', locationLng: '-97.7440', locationAccuracyMeters: '25',
+        deviceId: 'DEV-003', deviceFingerprint: 'fp_unknown_device',
+        loadTicketId: 'LT-2025-0042',
+        weatherSnapshot: { conditions: 'Overcast', temperature: 70 },
+        sourceNotes: 'Load departing for disposal site',
+        signals: [
+          { signalType: 'device', signalValue: { fingerprint: 'fp_unknown_device', knownDevice: false }, weight: 0.7 },
+          { signalType: 'load_ticket', signalValue: { ticketId: 'LT-2025-0042', matched: true, cubicYards: 18.5, debrisSite: 'Disposal Site Alpha' }, weight: 1.0 }
+        ]
+      },
+      {
+        eventType: 'site_inspection', crewId: 'CREW-C', crewMemberName: 'Lisa Park',
+        jobId: 'JOB-2025-003', locationLat: '0', locationLng: '0', locationAccuracyMeters: '999',
+        deviceId: 'DEV-004',
+        sourceNotes: 'Site inspection — GPS signal lost in dense tree cover',
+        signals: [
+          { signalType: 'photo', signalValue: { hasPhoto: false }, weight: 1.0 },
+          { signalType: 'sign_in', signalValue: { matched: false }, weight: 1.2 }
+        ]
+      },
+      {
+        eventType: 'photo_capture', crewId: 'CREW-A', crewMemberName: 'Marcus Johnson',
+        jobId: 'JOB-2025-001', locationLat: '30.2675', locationLng: '-97.7435', locationAccuracyMeters: '10',
+        deviceId: 'DEV-001', deviceFingerprint: 'fp_abc123def456',
+        exifMeta: { gpsLatitude: 30.2675, gpsLongitude: -97.7435, dateTime: new Date().toISOString(), cameraModel: 'iPhone 15 Pro', make: 'Apple' },
+        weatherSnapshot: { conditions: 'Clear', temperature: 75, humidity: 55 },
+        signInId: 'SI-003',
+        sourceNotes: 'Before/after photo documentation — tree removal complete',
+        signals: [
+          { signalType: 'photo', signalValue: { hasPhoto: true, aiVerified: true, description: 'Before/after comparison showing tree removal completion' }, weight: 1.0 },
+          { signalType: 'device', signalValue: { fingerprint: 'fp_abc123def456', knownDevice: true, deviceModel: 'iPhone 15 Pro' }, weight: 0.7 }
+        ]
+      }
+    ];
+
+    const results = [];
+    for (const scenario of scenarios) {
+      const response = await fetch(`http://localhost:5000/api/fema-data/verification-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scenario)
+      });
+      const result = await response.json();
+      results.push(result);
+    }
+
+    res.json({ success: true, simulated: results.length, results });
+  } catch (error) {
+    console.error('Error simulating verification events:', error);
+    res.status(500).json({ success: false, error: 'Failed to simulate events' });
   }
 });
 

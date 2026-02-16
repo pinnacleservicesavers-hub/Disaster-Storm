@@ -9558,3 +9558,101 @@ export const femaRevenueSnapshots = pgTable("fema_revenue_snapshots", {
 });
 
 export type FemaRevenueSnapshot = typeof femaRevenueSnapshots.$inferSelect;
+
+// ===== LAYERED LOCATION INTELLIGENCE SYSTEM =====
+
+// Verification Events - each represents a field verification attempt with multiple signals
+export const femaVerificationEvents = pgTable("fema_verification_events", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // crew_arrival, work_in_progress, load_departure, site_inspection, photo_capture
+  jobId: varchar("job_id", { length: 255 }),
+  pwNumber: varchar("pw_number", { length: 100 }),
+  crewId: varchar("crew_id", { length: 255 }),
+  crewMemberName: varchar("crew_member_name", { length: 255 }),
+  deviceId: varchar("device_id", { length: 255 }),
+  locationLat: numeric("location_lat", { precision: 10, scale: 7 }),
+  locationLng: numeric("location_lng", { precision: 10, scale: 7 }),
+  locationAccuracyMeters: numeric("location_accuracy_meters", { precision: 8, scale: 2 }),
+  exifMeta: jsonb("exif_meta"),
+  weatherSnapshot: jsonb("weather_snapshot"),
+  signInId: varchar("sign_in_id", { length: 255 }),
+  loadTicketId: varchar("load_ticket_id", { length: 255 }),
+  deviceFingerprint: varchar("device_fingerprint", { length: 500 }),
+  sourceNotes: text("source_notes"),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 2 }),
+  riskLevel: varchar("risk_level", { length: 20 }).default("low"), // low, medium, high, critical
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaVerificationEventSchema = createInsertSchema(femaVerificationEvents).omit({ id: true, createdAt: true });
+export type FemaVerificationEvent = typeof femaVerificationEvents.$inferSelect;
+export type InsertFemaVerificationEvent = z.infer<typeof insertFemaVerificationEventSchema>;
+
+// Verification Signals - individual signals that make up a verification event
+export const femaVerificationSignals = pgTable("fema_verification_signals", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  signalType: varchar("signal_type", { length: 30 }).notNull(), // gps, exif, time, weather, sign_in, load_ticket, device, photo, anomaly
+  signalValue: jsonb("signal_value").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("unknown"), // pass, fail, warning, unknown
+  weight: numeric("weight", { precision: 3, scale: 2 }).default("1.00"),
+  evidence: text("evidence"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaVerificationSignalSchema = createInsertSchema(femaVerificationSignals).omit({ id: true, createdAt: true });
+export type FemaVerificationSignal = typeof femaVerificationSignals.$inferSelect;
+export type InsertFemaVerificationSignal = z.infer<typeof insertFemaVerificationSignalSchema>;
+
+// Verification Scores - AI-computed aggregate scores per verification event
+export const femaVerificationScores = pgTable("fema_verification_scores", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 2 }).notNull(),
+  riskLevel: varchar("risk_level", { length: 20 }).notNull(), // low, medium, high, critical
+  anomalies: jsonb("anomalies"),
+  aiReasoning: text("ai_reasoning"),
+  signalBreakdown: jsonb("signal_breakdown"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaVerificationScoreSchema = createInsertSchema(femaVerificationScores).omit({ id: true, createdAt: true });
+export type FemaVerificationScore = typeof femaVerificationScores.$inferSelect;
+
+// Immutable Audit Chain - hash-chained log entries (tamper-proof)
+export const femaAuditChain = pgTable("fema_audit_chain", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // verification, document, timesheet, load_ticket, sign_in
+  entityId: varchar("entity_id", { length: 255 }).notNull(),
+  action: varchar("action", { length: 50 }).notNull(), // created, verified, flagged, overridden, exported
+  actor: varchar("actor", { length: 255 }).notNull(),
+  actorRole: varchar("actor_role", { length: 50 }),
+  payloadHash: varchar("payload_hash", { length: 64 }).notNull(),
+  prevHash: varchar("prev_hash", { length: 64 }).notNull(),
+  chainHash: varchar("chain_hash", { length: 64 }).notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaAuditChainSchema = createInsertSchema(femaAuditChain).omit({ id: true, createdAt: true });
+export type FemaAuditChainEntry = typeof femaAuditChain.$inferSelect;
+
+// Real-Time Compliance Status - aggregated compliance state per project/crew/job
+export const femaComplianceStatus = pgTable("fema_compliance_status", {
+  id: serial("id").primaryKey(),
+  scope: varchar("scope", { length: 30 }).notNull(), // project, crew, job
+  scopeId: varchar("scope_id", { length: 255 }).notNull(),
+  scopeName: varchar("scope_name", { length: 255 }),
+  overallScore: numeric("overall_score", { precision: 5, scale: 2 }).default("0"),
+  status: varchar("status", { length: 30 }).default("pending"), // compliant, warning, non_compliant, pending
+  totalEvents: integer("total_events").default(0),
+  passedEvents: integer("passed_events").default(0),
+  failedEvents: integer("failed_events").default(0),
+  lastEventId: integer("last_event_id"),
+  alerts: jsonb("alerts"),
+  signalSummary: jsonb("signal_summary"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaComplianceStatusSchema = createInsertSchema(femaComplianceStatus).omit({ id: true, updatedAt: true });
+export type FemaComplianceStatusEntry = typeof femaComplianceStatus.$inferSelect;

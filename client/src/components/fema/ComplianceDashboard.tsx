@@ -20,9 +20,6 @@ interface ComplianceProps {
   monitorVisitCount: number;
   activityReportCount: number;
   truckCertCount: number;
-  geofenceCount: number;
-  gpsActiveCount: number;
-  impossibleTravelFlags: number;
   duplicateFlags: number;
 }
 
@@ -47,6 +44,40 @@ export default function ComplianceDashboard(props: ComplianceProps) {
   }, []);
 
   useEffect(() => { loadDocCompliance(); }, [loadDocCompliance]);
+
+  const [verificationData, setVerificationData] = useState<any>(null);
+
+  const loadVerificationData = useCallback(async () => {
+    try {
+      const data = await apiRequest('/api/fema-data/verification-status');
+      if (data.success) setVerificationData(data);
+    } catch (err) {
+      console.error('Failed to load verification data:', err);
+    }
+  }, []);
+
+  useEffect(() => { loadVerificationData(); }, [loadVerificationData]);
+
+  const [auditChainData, setAuditChainData] = useState<any>(null);
+
+  const loadAuditChain = useCallback(async () => {
+    try {
+      const data = await apiRequest('/api/fema-data/audit-chain');
+      if (data.success) setAuditChainData(data);
+    } catch (err) {
+      console.error('Failed to load audit chain:', err);
+    }
+  }, []);
+
+  useEffect(() => { loadAuditChain(); }, [loadAuditChain]);
+
+  const verificationStats = {
+    total: parseInt(verificationData?.stats?.total_events || '0'),
+    avgConfidence: parseFloat(verificationData?.stats?.avg_confidence || '0'),
+    highRisk: parseInt(verificationData?.stats?.high_risk || '0') + parseInt(verificationData?.stats?.critical_risk || '0'),
+  };
+  const auditChainValid = auditChainData?.integrity?.valid ?? true;
+  const auditChainEntries = auditChainData?.integrity?.totalChecked ?? 0;
 
   const hasMSA = docCompliance?.status?.find((s: any) => s.type.includes('MSA'))?.status === 'on_file';
   const hasRateSheet = docCompliance?.status?.find((s: any) => s.type.includes('Rate Sheet'))?.status === 'on_file';
@@ -154,24 +185,30 @@ export default function ComplianceDashboard(props: ComplianceProps) {
       icon: Eye,
     },
     {
-      label: 'GPS Geofence Zones',
-      category: 'GPS',
-      status: props.geofenceCount > 0 ? 'pass' : 'warn',
-      detail: `${props.geofenceCount} geofence zones configured${props.geofenceCount === 0 ? ' — set up authorized work areas' : ''}`,
+      label: 'Layered Location Intelligence',
+      category: 'Verification',
+      status: verificationStats.total > 0 ? (verificationStats.avgConfidence >= 80 ? 'pass' : verificationStats.avgConfidence >= 50 ? 'warn' : 'fail') : 'warn',
+      detail: verificationStats.total > 0
+        ? `${verificationStats.total} verification events, avg confidence ${verificationStats.avgConfidence}% — multi-signal stack active`
+        : 'No verification events recorded — submit field verifications',
       icon: MapPin,
     },
     {
-      label: 'GPS Tracking Active',
-      category: 'GPS',
-      status: props.gpsActiveCount > 0 ? 'pass' : 'warn',
-      detail: `${props.gpsActiveCount} entities actively tracked`,
+      label: 'AI Field Verification',
+      category: 'Verification',
+      status: verificationStats.total > 0 ? (verificationStats.highRisk === 0 ? 'pass' : 'fail') : 'warn',
+      detail: verificationStats.highRisk > 0
+        ? `${verificationStats.highRisk} high/critical risk events flagged — review required`
+        : verificationStats.total > 0 ? 'All events within acceptable risk thresholds' : 'No events to verify',
       icon: Satellite,
     },
     {
-      label: 'Impossible Travel Detection',
-      category: 'Fraud',
-      status: props.impossibleTravelFlags === 0 ? 'pass' : 'fail',
-      detail: props.impossibleTravelFlags === 0 ? 'No impossible travel anomalies detected' : `${props.impossibleTravelFlags} GPS anomalies flagged — review required`,
+      label: 'Immutable Audit Chain',
+      category: 'Verification',
+      status: auditChainValid ? 'pass' : auditChainEntries > 0 ? 'fail' : 'warn',
+      detail: auditChainValid
+        ? `${auditChainEntries} hash-chained entries — tamper-proof integrity verified`
+        : auditChainEntries > 0 ? 'Audit chain integrity broken — investigate tampering' : 'No audit chain entries yet',
       icon: AlertTriangle,
     },
     {
@@ -304,7 +341,7 @@ export default function ComplianceDashboard(props: ComplianceProps) {
               { form: 'Monitor Visit Log', ref: 'FEMA Site Monitoring', status: props.monitorVisitCount > 0 },
               { form: 'Truck Certification', ref: 'Debris Hauling Requirement', status: props.truckCertCount > 0 },
               { form: 'Crew Roster', ref: 'Force Account Personnel', status: props.rosterCount > 0 },
-              { form: 'GPS Geofence Verification', ref: 'Work Zone Compliance', status: props.geofenceCount > 0 },
+              { form: 'Layered Location Intelligence', ref: 'Multi-Signal Verification', status: verificationStats.total > 0 },
               { form: 'Invoice / Payment Application', ref: 'Contract Billing', status: props.timesheetCount > 0 },
             ].map(item => (
               <div key={item.form} className="flex items-center justify-between p-2 rounded border border-slate-600 bg-slate-700/30">

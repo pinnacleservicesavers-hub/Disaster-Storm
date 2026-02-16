@@ -38,6 +38,7 @@ import SubcontractorRiskComponent, { type SubcontractorProfile } from "@/compone
 import PhotoUploadComponent, { type UploadedPhoto } from "@/components/fema/PhotoUpload";
 import JobTrackerComponent, { type JobEntry } from "@/components/fema/JobTracker";
 import ContractDocumentsComponent from "@/components/fema/ContractDocuments";
+import LocationIntelligenceComponent from "@/components/fema/LocationIntelligence";
 import ProjectCommunicationsComponent from "@/components/fema/ProjectCommunications";
 
 interface LaborRate {
@@ -1342,10 +1343,10 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {[
-            { title: 'Geofenced Work Zones', desc: 'GPS verification within assigned areas' },
-            { title: 'Before/After Photo AI', desc: 'Automated photo validation & consistency' },
-            { title: 'Equipment Telematics', desc: 'Engine hours match billing automatically' },
-            { title: 'Span-Based Logging', desc: 'Work tied to specific locations, not hours' },
+            { title: 'Layered Location Intelligence', desc: 'Multi-signal verification — GPS is one signal among many' },
+            { title: 'AI Field Verification', desc: 'Confidence scoring across 8 signal types per event' },
+            { title: 'Immutable Audit Chain', desc: 'Hash-chained logs — tamper-proof, FEMA-ready' },
+            { title: 'Real-Time Compliance', desc: 'Live scoring per crew, job, and project' },
           ].map(item => (
             <div key={item.title} className="flex items-start gap-3">
               <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
@@ -1694,7 +1695,7 @@ export default function FemaAuditDashboard() {
     { id: 'leaner-hanger', label: 'Leaner/Hanger', icon: Target, group: 'Debris' },
     { id: 'monitor', label: 'Monitor Log', icon: Eye, group: 'Oversight' },
     { id: 'sub-risk', label: 'Sub Risk', icon: AlertTriangle, group: 'Oversight' },
-    { id: 'gps', label: 'GPS Tracking', icon: Navigation, group: 'GPS' },
+    { id: 'location-intel', label: 'Location Intelligence', icon: Navigation, group: 'GPS' },
     { id: 'ai-verify', label: 'AI Verify', icon: Brain, group: 'AI' },
     { id: 'invoice', label: 'Invoice', icon: Receipt, group: 'Billing' },
     { id: 'documents', label: 'Documents', icon: FolderOpen, group: 'Docs' },
@@ -1853,8 +1854,8 @@ export default function FemaAuditDashboard() {
             <MonitorLogComponent entries={monitorEntries} setEntries={handleSetMonitorEntries}
               contractPW={contractInfo.projectWorksheetNumber} />
           )}
-          {activeTab === 'gps' && (
-            <GPSTrackingComponent />
+          {activeTab === 'location-intel' && (
+            <LocationIntelligenceComponent />
           )}
           {activeTab === 'invoice' && (
             <InvoiceTab timesheets={timesheets} laborRates={laborRates} equipmentRates={equipmentRates} />
@@ -1903,9 +1904,6 @@ export default function FemaAuditDashboard() {
               monitorVisitCount={monitorEntries.length}
               activityReportCount={dailyActivities.length}
               truckCertCount={truckCerts.length}
-              geofenceCount={4}
-              gpsActiveCount={6}
-              impossibleTravelFlags={1}
               duplicateFlags={0}
             />
           )}
