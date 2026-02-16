@@ -170,6 +170,7 @@ const AGGREGATOR_PORTALS = [
   { name: "Euna Supplier Network (Bonfire)", url: "https://supplier.eunasolutions.com/", desc: "Formerly Bonfire — widely used by counties for RFP posting and vendor responses." },
   { name: "PlanetBids", url: "https://www.planetbids.com/", desc: "E-procurement platform for local agencies." },
   { name: "GovWin", url: "https://www.deltek.com/en/products/govwin", desc: "Government contract intelligence platform." },
+  { name: "OMNIA Partners (OPUS)", url: "https://www.omniapartners.com/purchasing-simplified-with-opus", desc: "Nation's largest cooperative purchasing org. 1,000+ competitively solicited contracts, $35B+ managed spend, 643K+ member locations. Free OPUS platform for agencies & nonprofits." },
 ];
 
 function renderMarkdown(text: string) {
