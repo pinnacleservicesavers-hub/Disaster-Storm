@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { ModuleWrapper } from "@/components/ModuleWrapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Shield, FileCheck, MapPin, AlertTriangle, CheckCircle2, Clock,
   TrendingUp, BarChart3, Download, Eye, Truck, Users, Wrench,
@@ -1410,36 +1411,100 @@ function OverviewTab() {
   );
 }
 
+const DEFAULT_ROSTER: RosterMember[] = [
+  { id: '1', fullName: 'Brian Wise', classification: 'General Foreman', phone: '706-351-2436', email: 'bwwise38@gmail.com', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
+  { id: '2', fullName: 'Richard Hernandez', classification: 'Trimmer A', phone: '706-571-5895', email: '', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '3', fullName: 'Johnny Person', classification: 'Equipment Operator', phone: '706-840-8579', email: '', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '4', fullName: 'Keith J. Ferrell', classification: 'Foreman A', phone: '706-341-6460', email: 'keithferrell118@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
+  { id: '5', fullName: 'Rayden Jerrigan', classification: 'Equipment Operator', phone: '734-739-0328', email: 'williehurst589@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '6', fullName: 'Jose Dilenardo', classification: 'Trimmer A', phone: '762-241-7433', email: 'ethanlakeman@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '7', fullName: 'Will Peebles', classification: 'Foreman A', phone: '762-241-8246', email: 'willpeebles247@gmail.com', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
+  { id: '8', fullName: 'Damon Williamson', classification: 'Equipment Operator', phone: '706-392-6632', email: 'williamsondamon844@gmail.com', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '9', fullName: 'Joel Perez', classification: 'Trimmer A', phone: '762-580-5558', email: '', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '10', fullName: 'Tim G. Hurst', classification: 'Foreman A', phone: '706-571-5895', email: 'hurst0902@gmail.com', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
+  { id: '11', fullName: 'Kenneth Robbins', classification: 'Equipment Operator', phone: '706-786-7995', email: '', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+  { id: '12', fullName: 'Johnny Williams', classification: 'Trimmer A', phone: '706-786-7992', email: '', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
+];
+
+const DEFAULT_CONTRACT_INFO: ContractInfo = {
+  agencyType: '', grantProgram: '',
+  primeContractor: '', subContractor: 'Strategic Land Management', contractNumber: '',
+  taskOrder: '', femaDisasterNumber: '', femaRegion: '', projectWorksheetNumber: '',
+  incidentNumber: '', incidentType: '', declarationDate: '', declarationTitle: '',
+  stateOfEmergency: '', county: '', workLocation: '', scopeOfWork: '',
+  contractStartDate: '', contractEndDate: '', mobilizationDate: '', demobilizationDate: '',
+  projectManager: '', projectManagerPhone: '', femaMonitor: '', femaMonitorPhone: '',
+  osrRepresentative: '', osrPhone: '', applicantName: '', applicantPOC: '', applicantPhone: '',
+};
+
+function mapDbContractInfo(row: any): ContractInfo {
+  return {
+    agencyType: row.agency_type || '', grantProgram: row.grant_program || '',
+    primeContractor: row.prime_contractor || '', subContractor: row.sub_contractor || '',
+    contractNumber: row.contract_number || '', taskOrder: row.task_order || '',
+    femaDisasterNumber: row.fema_disaster_number || '', femaRegion: row.fema_region || '',
+    projectWorksheetNumber: row.project_worksheet_number || '', incidentNumber: row.incident_number || '',
+    incidentType: row.incident_type || '', declarationDate: row.declaration_date || '',
+    declarationTitle: row.declaration_title || '', stateOfEmergency: row.state_of_emergency || '',
+    county: row.county || '', workLocation: row.work_location || '', scopeOfWork: row.scope_of_work || '',
+    contractStartDate: row.contract_start_date || '', contractEndDate: row.contract_end_date || '',
+    mobilizationDate: row.mobilization_date || '', demobilizationDate: row.demobilization_date || '',
+    projectManager: row.project_manager || '', projectManagerPhone: row.project_manager_phone || '',
+    femaMonitor: row.fema_monitor || '', femaMonitorPhone: row.fema_monitor_phone || '',
+    osrRepresentative: row.osr_representative || '', osrPhone: row.osr_phone || '',
+    applicantName: row.applicant_name || '', applicantPOC: row.applicant_poc || '',
+    applicantPhone: row.applicant_phone || '',
+  };
+}
+
+function mapDbRoster(row: any): RosterMember {
+  return {
+    id: row.id, fullName: row.full_name, classification: row.classification,
+    phone: row.phone || '', email: row.email || '', crew: row.crew || 'Crew 1',
+    stateId: row.state_id || '', crewNumber: row.crew_number || '',
+    mobilizedDate: row.mobilized_date || '', startWorkDate: row.start_work_date || '',
+    company: row.company || '', equipmentAssigned: row.equipment_assigned || '',
+    lastDayOnJob: row.last_day_on_job || '',
+  };
+}
+
+function mapDbLaborRate(row: any): LaborRate {
+  return { id: row.id, classification: row.classification, stRate: parseFloat(row.st_rate) || 0, otRate: parseFloat(row.ot_rate) || 0, dtRate: parseFloat(row.dt_rate) || 0 };
+}
+
+function mapDbEquipmentRate(row: any): EquipmentRate {
+  return { id: row.id, equipmentName: row.equipment_name, equipmentId: row.equipment_id_code || '', hourlyRate: parseFloat(row.hourly_rate) || 0 };
+}
+
+function mapDbTimesheet(row: any): TimesheetWeek {
+  const entries = typeof row.entries === 'string' ? JSON.parse(row.entries) : row.entries;
+  return { id: row.id, crewName: row.crew_name, weekEnding: row.week_ending, stormEvent: row.storm_event || '', contractorCompany: row.contractor_company || '', foremanName: row.foreman_name || '', entries: entries || [] };
+}
+
+async function autoSave(endpoint: string, body: any) {
+  try {
+    await apiRequest(`/api/fema-data/${endpoint}`, 'POST', body);
+  } catch (err) {
+    console.error(`Auto-save failed for ${endpoint}:`, err);
+  }
+}
+
 export default function FemaAuditDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("contract");
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [aiScanRunning, setAiScanRunning] = useState(false);
+  const [aiScanResults, setAiScanResults] = useState<any>(null);
+  const [showAiResults, setShowAiResults] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [laborRates, setLaborRates] = useState<LaborRate[]>(DEFAULT_LABOR_RATES);
   const [equipmentRates, setEquipmentRates] = useState<EquipmentRate[]>(DEFAULT_EQUIPMENT_RATES);
-  const [roster, setRoster] = useState<RosterMember[]>([
-    { id: '1', fullName: 'Brian Wise', classification: 'General Foreman', phone: '706-351-2436', email: 'bwwise38@gmail.com', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
-    { id: '2', fullName: 'Richard Hernandez', classification: 'Trimmer A', phone: '706-571-5895', email: '', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '3', fullName: 'Johnny Person', classification: 'Equipment Operator', phone: '706-840-8579', email: '', crew: 'Crew 1', stateId: '', crewNumber: '1', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '4', fullName: 'Keith J. Ferrell', classification: 'Foreman A', phone: '706-341-6460', email: 'keithferrell118@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
-    { id: '5', fullName: 'Rayden Jerrigan', classification: 'Equipment Operator', phone: '734-739-0328', email: 'williehurst589@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '6', fullName: 'Jose Dilenardo', classification: 'Trimmer A', phone: '762-241-7433', email: 'ethanlakeman@gmail.com', crew: 'Crew 2', stateId: '', crewNumber: '2', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '7', fullName: 'Will Peebles', classification: 'Foreman A', phone: '762-241-8246', email: 'willpeebles247@gmail.com', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
-    { id: '8', fullName: 'Damon Williamson', classification: 'Equipment Operator', phone: '706-392-6632', email: 'williamsondamon844@gmail.com', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '9', fullName: 'Joel Perez', classification: 'Trimmer A', phone: '762-580-5558', email: '', crew: 'Crew 3', stateId: '', crewNumber: '3', mobilizedDate: '2026-01-26', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '10', fullName: 'Tim G. Hurst', classification: 'Foreman A', phone: '706-571-5895', email: 'hurst0902@gmail.com', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: 'Bucket Truck', lastDayOnJob: '' },
-    { id: '11', fullName: 'Kenneth Robbins', classification: 'Equipment Operator', phone: '706-786-7995', email: '', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-    { id: '12', fullName: 'Johnny Williams', classification: 'Trimmer A', phone: '706-786-7992', email: '', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
-  ]);
+  const [roster, setRoster] = useState<RosterMember[]>(DEFAULT_ROSTER);
   const [timesheets, setTimesheets] = useState<TimesheetWeek[]>([]);
-  const [contractInfo, setContractInfo] = useState<ContractInfo>({
-    agencyType: '', grantProgram: '',
-    primeContractor: '', subContractor: 'Strategic Land Management', contractNumber: '',
-    taskOrder: '', femaDisasterNumber: '', femaRegion: '', projectWorksheetNumber: '',
-    incidentNumber: '', incidentType: '', declarationDate: '', declarationTitle: '',
-    stateOfEmergency: '', county: '', workLocation: '', scopeOfWork: '',
-    contractStartDate: '', contractEndDate: '', mobilizationDate: '', demobilizationDate: '',
-    projectManager: '', projectManagerPhone: '', femaMonitor: '', femaMonitorPhone: '',
-    osrRepresentative: '', osrPhone: '', applicantName: '', applicantPOC: '', applicantPhone: '',
-  });
+  const [contractInfo, setContractInfo] = useState<ContractInfo>(DEFAULT_CONTRACT_INFO);
   const [loadTickets, setLoadTickets] = useState<LoadTicket[]>([]);
   const [equipmentLogEntries, setEquipmentLogEntries] = useState<EquipmentLogEntry[]>([]);
   const [signInRecords, setSignInRecords] = useState<SignInRecord[]>([]);
@@ -1450,6 +1515,167 @@ export default function FemaAuditDashboard() {
   const [subcontractors, setSubcontractors] = useState<SubcontractorProfile[]>([]);
   const [workPhotos, setWorkPhotos] = useState<UploadedPhoto[]>([]);
   const [jobEntries, setJobEntries] = useState<JobEntry[]>([]);
+
+  useEffect(() => {
+    async function loadAllData() {
+      try {
+        const [ciRes, lrRes, erRes, rosterRes, tsRes, siRes, daRes, tcRes, lhRes, subRes, jeRes, ltRes, elRes, mnRes] = await Promise.all([
+          fetch('/api/fema-data/contract-info').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/labor-rates').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/equipment-rates').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/roster').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/timesheets').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/sign-in-records').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/daily-activities').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/truck-certs').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/leaner-hanger').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/subcontractors').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/job-entries').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/load-tickets').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/equipment-log-entries').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('/api/fema-data/monitor-entries').then(r => r.json()).catch(() => ({ success: false })),
+        ]);
+        if (ciRes.success && ciRes.contractInfo) setContractInfo(mapDbContractInfo(ciRes.contractInfo));
+        if (lrRes.success && lrRes.laborRates?.length > 0) setLaborRates(lrRes.laborRates.map(mapDbLaborRate));
+        if (erRes.success && erRes.equipmentRates?.length > 0) setEquipmentRates(erRes.equipmentRates.map(mapDbEquipmentRate));
+        if (rosterRes.success && rosterRes.roster?.length > 0) setRoster(rosterRes.roster.map(mapDbRoster));
+        if (tsRes.success && tsRes.timesheets?.length > 0) setTimesheets(tsRes.timesheets.map(mapDbTimesheet));
+        if (daRes.success && daRes.activities?.length > 0) setDailyActivities(daRes.activities);
+        if (tcRes.success && tcRes.certs?.length > 0) setTruckCerts(tcRes.certs);
+        if (lhRes.success && lhRes.entries?.length > 0) setLeanerHangerEntries(lhRes.entries);
+        if (subRes.success && subRes.subcontractors?.length > 0) setSubcontractors(subRes.subcontractors);
+        if (jeRes.success && jeRes.jobEntries?.length > 0) setJobEntries(jeRes.jobEntries);
+        if (ltRes.success && ltRes.tickets?.length > 0) setLoadTickets(ltRes.tickets);
+        if (elRes.success && elRes.entries?.length > 0) setEquipmentLogEntries(elRes.entries);
+        if (mnRes.success && mnRes.entries?.length > 0) setMonitorEntries(mnRes.entries);
+        setDataLoaded(true);
+      } catch (err) {
+        console.error('Failed to load FEMA data:', err);
+        setDataLoaded(true);
+      }
+    }
+    loadAllData();
+  }, []);
+
+  const debouncedSave = useCallback((endpoint: string, body: any) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      setSaving(true);
+      await autoSave(endpoint, body);
+      setSaving(false);
+    }, 1500);
+  }, []);
+
+  const handleSetContractInfo = useCallback((info: ContractInfo) => {
+    setContractInfo(info);
+    debouncedSave('contract-info', info);
+  }, [debouncedSave]);
+
+  const handleSetLaborRates = useCallback((rates: LaborRate[]) => {
+    setLaborRates(rates);
+    debouncedSave('labor-rates', { rates });
+  }, [debouncedSave]);
+
+  const handleSetEquipmentRates = useCallback((rates: EquipmentRate[]) => {
+    setEquipmentRates(rates);
+    debouncedSave('equipment-rates', { rates });
+  }, [debouncedSave]);
+
+  const handleSetRoster = useCallback((members: RosterMember[]) => {
+    setRoster(members);
+    debouncedSave('roster', { members });
+  }, [debouncedSave]);
+
+  const handleSetTimesheets = useCallback((ts: TimesheetWeek[]) => {
+    setTimesheets(ts);
+    debouncedSave('timesheets', { timesheets: ts });
+  }, [debouncedSave]);
+
+  const handleSetSignInRecords = useCallback((records: SignInRecord[]) => {
+    setSignInRecords(records);
+    debouncedSave('sign-in-records', { records });
+  }, [debouncedSave]);
+
+  const handleSetDailyActivities = useCallback((activities: DailyActivity[]) => {
+    setDailyActivities(activities);
+    debouncedSave('daily-activities', { activities });
+  }, [debouncedSave]);
+
+  const handleSetTruckCerts = useCallback((certs: TruckCert[]) => {
+    setTruckCerts(certs);
+    debouncedSave('truck-certs', { certs });
+  }, [debouncedSave]);
+
+  const handleSetLeanerHanger = useCallback((entries: LeanerHangerEntry[]) => {
+    setLeanerHangerEntries(entries);
+    debouncedSave('leaner-hanger', { entries });
+  }, [debouncedSave]);
+
+  const handleSetSubcontractors = useCallback((subs: SubcontractorProfile[]) => {
+    setSubcontractors(subs);
+    debouncedSave('subcontractors', { subcontractors: subs });
+  }, [debouncedSave]);
+
+  const handleSetLoadTickets = useCallback((tickets: LoadTicket[]) => {
+    setLoadTickets(tickets);
+    debouncedSave('load-tickets', { tickets });
+  }, [debouncedSave]);
+
+  const handleSetEquipmentLog = useCallback((entries: EquipmentLogEntry[]) => {
+    setEquipmentLogEntries(entries);
+    debouncedSave('equipment-log-entries', { entries });
+  }, [debouncedSave]);
+
+  const handleSetMonitorEntries = useCallback((entries: MonitorLogEntry[]) => {
+    setMonitorEntries(entries);
+    debouncedSave('monitor-entries', { entries });
+  }, [debouncedSave]);
+
+  const handleSetJobEntries = useCallback((entries: JobEntry[]) => {
+    setJobEntries(entries);
+    debouncedSave('job-entries', { entries });
+  }, [debouncedSave]);
+
+  const runAiScan = useCallback(async () => {
+    setAiScanRunning(true);
+    try {
+      const data = await apiRequest('/api/fema-data/ai-scan', 'POST', {});
+      if (data.success) {
+        setAiScanResults(data);
+        setShowAiResults(true);
+        toast({ title: `AI Scan Complete`, description: `Found ${data.totalFindings} findings. Risk score: ${data.riskScore}/100` });
+      } else {
+        toast({ title: "AI Scan Failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "AI Scan Error", description: "Failed to run AI scan", variant: "destructive" });
+    }
+    setAiScanRunning(false);
+  }, [toast]);
+
+  const exportAuditPacket = useCallback(async () => {
+    setExporting(true);
+    try {
+      const data = await apiRequest('/api/fema-data/export-audit-packet', 'POST', {});
+      if (data.success) {
+        const blob = new Blob([JSON.stringify(data.packet, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `FEMA_Audit_Packet_${data.packet.exportDate}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: "Audit Packet Exported", description: `Full compliance package generated with ${Object.keys(data.packet.sections).length} sections` });
+      } else {
+        toast({ title: "Export Failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Export Error", description: "Failed to export audit packet", variant: "destructive" });
+    }
+    setExporting(false);
+  }, [toast]);
 
   const NAV_SECTIONS = [
     { id: 'contract', label: 'Contract Setup', icon: Building2, group: 'Setup' },
@@ -1485,14 +1711,16 @@ export default function FemaAuditDashboard() {
             </h1>
             <p className="text-slate-400">Multi-agency compliance for FEMA, USACE, HUD, DOT, State & private contracts — AI-powered fraud detection & audit export</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+          <div className="flex gap-2 items-center">
+            {saving && <Badge variant="outline" className="text-yellow-400 border-yellow-400 animate-pulse text-xs">Saving...</Badge>}
+            {dataLoaded && <Badge variant="outline" className="text-green-400 border-green-400 text-xs">DB Connected</Badge>}
+            <Button variant="outline" size="sm" onClick={runAiScan} disabled={aiScanRunning}>
               <Brain className="h-4 w-4 mr-2" />
-              Run AI Scan
+              {aiScanRunning ? 'Scanning...' : 'Run AI Scan'}
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={exportAuditPacket} disabled={exporting}>
               <Download className="h-4 w-4 mr-2" />
-              Export Audit Packet
+              {exporting ? 'Exporting...' : 'Export Audit Packet'}
             </Button>
           </div>
         </div>
@@ -1518,52 +1746,107 @@ export default function FemaAuditDashboard() {
           ))}
         </div>
 
+        {showAiResults && aiScanResults && (
+          <Dialog open={showAiResults} onOpenChange={setShowAiResults}>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-blue-500" />
+                  AI Compliance Scan Results
+                </DialogTitle>
+                <DialogDescription>
+                  Scanned on {new Date(aiScanResults.scanDate).toLocaleString()}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="text-center p-3 rounded-lg bg-slate-800">
+                    <div className="text-2xl font-bold text-white">{aiScanResults.riskScore}</div>
+                    <div className="text-xs text-slate-400">Risk Score</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-red-900/30">
+                    <div className="text-2xl font-bold text-red-400">{aiScanResults.criticalCount}</div>
+                    <div className="text-xs text-slate-400">Critical</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-orange-900/30">
+                    <div className="text-2xl font-bold text-orange-400">{aiScanResults.highCount}</div>
+                    <div className="text-xs text-slate-400">High</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-yellow-900/30">
+                    <div className="text-2xl font-bold text-yellow-400">{aiScanResults.mediumCount}</div>
+                    <div className="text-xs text-slate-400">Medium</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {aiScanResults.findings.map((f: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded bg-slate-800">
+                      <Badge variant={f.severity === 'critical' ? 'destructive' : f.severity === 'high' ? 'default' : 'secondary'} className="text-xs shrink-0 mt-0.5">
+                        {f.severity}
+                      </Badge>
+                      <div>
+                        <p className="text-sm text-white">{f.description}</p>
+                        <p className="text-xs text-slate-400">{f.category}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {aiScanResults.findings.length === 0 && (
+                    <div className="text-center py-6 text-green-400">
+                      <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
+                      <p>No compliance issues found</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
         <div className="mt-4">
           {activeTab === 'contract' && (
-            <ContractSetupComponent contractInfo={contractInfo} setContractInfo={setContractInfo} />
+            <ContractSetupComponent contractInfo={contractInfo} setContractInfo={handleSetContractInfo} />
           )}
           {activeTab === 'rate-sheet' && (
             <RateSheetTab
-              laborRates={laborRates} setLaborRates={setLaborRates}
-              equipmentRates={equipmentRates} setEquipmentRates={setEquipmentRates}
+              laborRates={laborRates} setLaborRates={handleSetLaborRates}
+              equipmentRates={equipmentRates} setEquipmentRates={handleSetEquipmentRates}
             />
           )}
           {activeTab === 'job-tracker' && (
             <JobTrackerComponent
-              jobs={jobEntries} setJobs={setJobEntries}
+              jobs={jobEntries} setJobs={handleSetJobEntries}
               laborRates={laborRates} equipmentRates={equipmentRates}
-              setLaborRates={setLaborRates} setEquipmentRates={setEquipmentRates}
+              setLaborRates={handleSetLaborRates} setEquipmentRates={handleSetEquipmentRates}
             />
           )}
           {activeTab === 'roster' && (
-            <RosterTab roster={roster} setRoster={setRoster} laborRates={laborRates} />
+            <RosterTab roster={roster} setRoster={handleSetRoster} laborRates={laborRates} />
           )}
           {activeTab === 'signin' && (
-            <DailySignInComponent records={signInRecords} setRecords={setSignInRecords} roster={roster} />
+            <DailySignInComponent records={signInRecords} setRecords={handleSetSignInRecords} roster={roster} />
           )}
           {activeTab === 'timesheet' && (
             <TimesheetTab
-              timesheets={timesheets} setTimesheets={setTimesheets}
+              timesheets={timesheets} setTimesheets={handleSetTimesheets}
               roster={roster} laborRates={laborRates}
             />
           )}
           {activeTab === 'activity' && (
-            <DailyActivityComponent activities={dailyActivities} setActivities={setDailyActivities}
+            <DailyActivityComponent activities={dailyActivities} setActivities={handleSetDailyActivities}
               contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
           )}
           {activeTab === 'equipment-log' && (
-            <EquipmentLogComponent entries={equipmentLogEntries} setEntries={setEquipmentLogEntries}
+            <EquipmentLogComponent entries={equipmentLogEntries} setEntries={handleSetEquipmentLog}
               equipmentRates={equipmentRates} contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
           )}
           {activeTab === 'load-tickets' && (
-            <LoadTicketsComponent loadTickets={loadTickets} setLoadTickets={setLoadTickets}
+            <LoadTicketsComponent loadTickets={loadTickets} setLoadTickets={handleSetLoadTickets}
               contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
           )}
           {activeTab === 'truck-cert' && (
-            <TruckCertComponent certs={truckCerts} setCerts={setTruckCerts} />
+            <TruckCertComponent certs={truckCerts} setCerts={handleSetTruckCerts} />
           )}
           {activeTab === 'monitor' && (
-            <MonitorLogComponent entries={monitorEntries} setEntries={setMonitorEntries}
+            <MonitorLogComponent entries={monitorEntries} setEntries={handleSetMonitorEntries}
               contractPW={contractInfo.projectWorksheetNumber} />
           )}
           {activeTab === 'gps' && (
@@ -1576,11 +1859,11 @@ export default function FemaAuditDashboard() {
             <PhotoUploadComponent photos={workPhotos} setPhotos={setWorkPhotos} category="Work Documentation" maxPhotos={50} />
           )}
           {activeTab === 'leaner-hanger' && (
-            <LeanerHangerTrackerComponent entries={leanerHangerEntries} setEntries={setLeanerHangerEntries}
+            <LeanerHangerTrackerComponent entries={leanerHangerEntries} setEntries={handleSetLeanerHanger}
               contractPW={contractInfo.projectWorksheetNumber} />
           )}
           {activeTab === 'sub-risk' && (
-            <SubcontractorRiskComponent subs={subcontractors} setSubs={setSubcontractors} />
+            <SubcontractorRiskComponent subs={subcontractors} setSubs={handleSetSubcontractors} />
           )}
           {activeTab === 'ai-verify' && (
             <AIVerificationEngineComponent
