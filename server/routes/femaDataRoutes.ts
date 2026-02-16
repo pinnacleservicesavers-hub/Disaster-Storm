@@ -539,4 +539,159 @@ router.post('/ai-scan', async (_req: Request, res: Response) => {
   }
 });
 
+// ============ CONTRACT DOCUMENT MANAGEMENT ============
+
+const DOCUMENT_TYPES = [
+  'Master Service Agreement (MSA)',
+  'Approved Rate Sheet',
+  'Job Classification',
+  'Notice to Proceed (NTP)',
+  'Change Order',
+  'Amendment',
+  'Written Modification',
+  'Supplemental Agreement',
+  'Procurement Documentation',
+  'Subcontract Agreement',
+  'Insurance Certificate',
+  'Bond Documentation',
+  'Safety Plan',
+  'Other',
+];
+
+router.get('/contract-documents', async (req: Request, res: Response) => {
+  try {
+    const contractId = req.query.contractId as string || '';
+    let result;
+    if (contractId) {
+      result = await db.execute(sql`SELECT * FROM fema_contract_documents WHERE contract_id = ${contractId} AND is_active = true ORDER BY created_at DESC`);
+    } else {
+      result = await db.execute(sql`SELECT * FROM fema_contract_documents WHERE is_active = true ORDER BY created_at DESC`);
+    }
+    res.json({ success: true, documents: result.rows, documentTypes: DOCUMENT_TYPES });
+  } catch (error) {
+    console.error('Error fetching contract documents:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch documents' });
+  }
+});
+
+router.post('/contract-documents', async (req: Request, res: Response) => {
+  try {
+    const { contractId, projectId, documentType, documentName, description, fileContent, fileMimeType, uploadedBy, uploadedByRole, tags } = req.body;
+    if (!documentName || !documentType || !uploadedBy) {
+      return res.status(400).json({ success: false, error: 'Missing required fields: documentName, documentType, uploadedBy' });
+    }
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv', 'text/plain', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (fileMimeType && !allowedTypes.includes(fileMimeType)) {
+      return res.status(400).json({ success: false, error: `File type "${fileMimeType}" not allowed. Accepted: PDF, DOC, XLS, CSV, TXT, JPG, PNG` });
+    }
+    const fileUrl = fileContent ? `data:${fileMimeType || 'application/octet-stream'};base64,${fileContent}` : null;
+    const fileSize = fileContent ? Math.ceil(fileContent.length * 0.75) : 0;
+    if (fileSize > 10 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'File exceeds 10MB limit' });
+    }
+    const result = await db.execute(sql`INSERT INTO fema_contract_documents
+      (contract_id, project_id, document_type, document_name, description, file_url, file_size_bytes, file_mime_type, uploaded_by, uploaded_by_role, tags)
+      VALUES (${contractId || null}, ${projectId || null}, ${documentType}, ${documentName}, ${description || null},
+        ${fileUrl}, ${fileSize}, ${fileMimeType || null}, ${uploadedBy}, ${uploadedByRole || 'contractor'},
+        ${tags ? sql`${tags}::text[]` : sql`'{}'::text[]`})
+      RETURNING *`);
+
+    await db.execute(sql`INSERT INTO fema_project_messages
+      (contract_id, project_id, thread_id, sender_name, sender_role, subject, message_body, message_type, priority)
+      VALUES (${contractId || null}, ${projectId || null}, ${'system-audit-trail'}, ${'System'}, ${'system'},
+        ${'Document Uploaded'}, ${`${uploadedBy} (${uploadedByRole || 'contractor'}) uploaded "${documentName}" [${documentType}]`},
+        ${'system_event'}, ${'normal'})`);
+
+    res.json({ success: true, document: result.rows[0] });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload document' });
+  }
+});
+
+router.delete('/contract-documents/:id', async (req: Request, res: Response) => {
+  try {
+    const docId = parseInt(req.params.id);
+    await db.execute(sql`UPDATE fema_contract_documents SET is_active = false, updated_at = NOW() WHERE id = ${docId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete document' });
+  }
+});
+
+// ============ PROJECT MESSAGING / COMMUNICATION ============
+
+router.get('/project-messages', async (req: Request, res: Response) => {
+  try {
+    const contractId = req.query.contractId as string || '';
+    const threadId = req.query.threadId as string || '';
+    let result;
+    if (threadId) {
+      result = await db.execute(sql`SELECT * FROM fema_project_messages WHERE thread_id = ${threadId} ORDER BY created_at ASC`);
+    } else if (contractId) {
+      result = await db.execute(sql`SELECT * FROM fema_project_messages WHERE contract_id = ${contractId} ORDER BY created_at DESC`);
+    } else {
+      result = await db.execute(sql`SELECT * FROM fema_project_messages ORDER BY created_at DESC LIMIT 200`);
+    }
+    res.json({ success: true, messages: result.rows });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch messages' });
+  }
+});
+
+router.get('/project-messages/threads', async (req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT thread_id, subject, MAX(created_at) as last_message_at, COUNT(*) as message_count,
+        array_agg(DISTINCT sender_role) as participants
+      FROM fema_project_messages
+      WHERE thread_id IS NOT NULL AND message_type != 'system_event'
+      GROUP BY thread_id, subject
+      ORDER BY MAX(created_at) DESC
+    `);
+    res.json({ success: true, threads: result.rows });
+  } catch (error) {
+    console.error('Error fetching threads:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch threads' });
+  }
+});
+
+router.post('/project-messages', async (req: Request, res: Response) => {
+  try {
+    const { contractId, projectId, threadId, parentMessageId, senderName, senderRole, senderEmail, recipientRole, subject, messageBody, messageType, priority, attachments } = req.body;
+    if (!senderName || !senderRole || !messageBody) {
+      return res.status(400).json({ success: false, error: 'Missing required fields: senderName, senderRole, messageBody' });
+    }
+    const finalThreadId = threadId || `thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const result = await db.execute(sql`INSERT INTO fema_project_messages
+      (contract_id, project_id, thread_id, parent_message_id, sender_name, sender_role, sender_email,
+       recipient_role, subject, message_body, message_type, priority, attachments)
+      VALUES (${contractId || null}, ${projectId || null}, ${finalThreadId}, ${parentMessageId || null},
+        ${senderName}, ${senderRole}, ${senderEmail || null}, ${recipientRole || null},
+        ${subject || null}, ${messageBody}, ${messageType || 'message'}, ${priority || 'normal'},
+        ${JSON.stringify(attachments || [])}::jsonb)
+      RETURNING *`);
+    res.json({ success: true, message: result.rows[0] });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ success: false, error: 'Failed to send message' });
+  }
+});
+
+router.get('/audit-trail', async (req: Request, res: Response) => {
+  try {
+    const docsResult = await db.execute(sql`SELECT id, document_type, document_name, uploaded_by, uploaded_by_role, created_at, 'document_upload' as event_type FROM fema_contract_documents WHERE is_active = true ORDER BY created_at DESC LIMIT 100`);
+    const msgsResult = await db.execute(sql`SELECT id, sender_name, sender_role, subject, message_type, priority, created_at, 'message' as event_type FROM fema_project_messages ORDER BY created_at DESC LIMIT 100`);
+    const combined = [...docsResult.rows, ...msgsResult.rows].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    res.json({ success: true, events: combined.slice(0, 100) });
+  } catch (error) {
+    console.error('Error fetching audit trail:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch audit trail' });
+  }
+});
+
 export default router;

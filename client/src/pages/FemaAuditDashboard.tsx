@@ -18,7 +18,7 @@ import {
   XCircle, RefreshCw, Plus, ChevronRight, Target, Zap,
   Trash2, Edit, Save, Calculator, ClipboardList, Receipt,
   UserPlus, Settings, ChevronDown, ChevronUp, Printer,
-  Building2, Navigation, Briefcase
+  Building2, Navigation, Briefcase, FolderOpen, MessageSquare
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -37,6 +37,8 @@ import AIVerificationEngineComponent from "@/components/fema/AIVerificationEngin
 import SubcontractorRiskComponent, { type SubcontractorProfile } from "@/components/fema/SubcontractorRisk";
 import PhotoUploadComponent, { type UploadedPhoto } from "@/components/fema/PhotoUpload";
 import JobTrackerComponent, { type JobEntry } from "@/components/fema/JobTracker";
+import ContractDocumentsComponent from "@/components/fema/ContractDocuments";
+import ProjectCommunicationsComponent from "@/components/fema/ProjectCommunications";
 
 interface LaborRate {
   id: string;
@@ -1695,6 +1697,8 @@ export default function FemaAuditDashboard() {
     { id: 'gps', label: 'GPS Tracking', icon: Navigation, group: 'GPS' },
     { id: 'ai-verify', label: 'AI Verify', icon: Brain, group: 'AI' },
     { id: 'invoice', label: 'Invoice', icon: Receipt, group: 'Billing' },
+    { id: 'documents', label: 'Documents', icon: FolderOpen, group: 'Docs' },
+    { id: 'comms', label: 'Communications', icon: MessageSquare, group: 'Docs' },
     { id: 'compliance', label: 'Compliance', icon: Shield, group: 'Audit' },
   ];
 
@@ -1881,6 +1885,12 @@ export default function FemaAuditDashboard() {
               impossibleTravelFlags={1}
               duplicateFlags={0}
             />
+          )}
+          {activeTab === 'documents' && (
+            <ContractDocumentsComponent />
+          )}
+          {activeTab === 'comms' && (
+            <ProjectCommunicationsComponent />
           )}
           {activeTab === 'compliance' && (
             <ComplianceDashboardComponent
