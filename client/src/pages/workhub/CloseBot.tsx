@@ -21,6 +21,7 @@ import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -933,6 +934,7 @@ FEATURES:
 
 Help users understand how to use Rachel effectively and teach them natural sales techniques.`}
       />
+      <ModuleVoiceGuide moduleName="close-bot" />
     </div>
   );
 }

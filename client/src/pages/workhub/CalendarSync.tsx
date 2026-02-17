@@ -14,6 +14,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { SiGoogle } from 'react-icons/si';
 import { Link2, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const MOCK_APPOINTMENTS = [
   { id: 1, customer: 'John Martinez', service: 'Tree Removal Estimate', date: 'Today', time: '2:00 PM', status: 'confirmed', location: '123 Oak St, Austin, TX' },
@@ -272,6 +273,7 @@ export default function CalendarSync() {
         moduleName="CalendarSync"
         moduleContext="CalendarSync is an AI-powered scheduling system. It manages appointments, sends smart reminders, prevents conflicts, and can auto-schedule based on contractor availability. Help users manage their calendar efficiently and never miss appointments."
       />
+      <ModuleVoiceGuide moduleName="calendar-sync" />
     </div>
   );
 }

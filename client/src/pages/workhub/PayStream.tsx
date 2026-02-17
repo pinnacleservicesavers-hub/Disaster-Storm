@@ -12,6 +12,7 @@ import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function PayStream() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -190,6 +191,7 @@ export default function PayStream() {
         moduleName="PayStream"
         moduleContext="PayStream is the payment command center for contractors. It handles invoicing, payment tracking, and withdrawals. Help users send invoices, understand their payment status, and manage their earnings."
       />
+      <ModuleVoiceGuide moduleName="pay-stream" />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import ModuleAIAssistant from "@/components/ModuleAIAssistant";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   Swords,
   ArrowLeft,
@@ -5280,6 +5281,7 @@ export default function AIBidIntelPro() {
         moduleName="AI BidIntel Pro" 
         moduleContext="This is the AI BidIntel Pro procurement intelligence module. The user is a contractor looking for government and commercial bids. Help them find opportunities, understand procurement processes, complete forms like SAM.gov registration, SF-1449, and W-9, pricing strategy, proposal writing, compliance requirements, NAICS codes, certifications (SDVOSB, WOSB, HUBZone, 8a, DBE), and winning bids. Guide them to use the Procurement Portals tab for state-specific sites, BidNet Direct for county bids, and SAM.gov for federal contracts."
       />
+      <ModuleVoiceGuide moduleName="ai-bid-intel-pro" />
     </div>
   );
 }

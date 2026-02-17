@@ -13,6 +13,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const MOCK_JOBS = [
   { id: 1, customer: 'Robert Williams', service: 'Tree Removal', value: 2100, progress: 60, status: 'in_progress', startDate: 'Dec 15', dueDate: 'Dec 18', milestones: ['Site Prep', 'Cutting', 'Cleanup'] },
@@ -216,6 +217,7 @@ export default function JobFlow() {
         moduleName="JobFlow"
         moduleContext="JobFlow is the project command center for tracking jobs from estimate to completion. It shows job progress, milestones, and allows updating status. Help users manage their active jobs, track progress, and communicate with customers."
       />
+      <ModuleVoiceGuide moduleName="job-flow" />
     </div>
   );
 }

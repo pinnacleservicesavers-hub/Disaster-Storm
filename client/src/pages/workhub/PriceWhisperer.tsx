@@ -18,6 +18,7 @@ import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function PriceWhisperer() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -315,6 +316,7 @@ export default function PriceWhisperer() {
         moduleName="PriceWhisperer"
         moduleContext="PriceWhisperer is a smart estimate engine that provides AI-powered pricing analysis. It shows industry-standard pricing ranges, market comparisons, local averages, and price adjustment factors. Help users understand fair pricing for their jobs and how to price competitively."
       />
+      <ModuleVoiceGuide moduleName="price-whisperer" />
     </div>
   );
 }

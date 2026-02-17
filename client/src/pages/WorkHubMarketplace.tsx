@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   Camera, DollarSign, Users, Calendar, Briefcase, Shield,
   Bot, CreditCard, Star, TrendingUp, Wallet, Image,
@@ -367,6 +368,7 @@ End with something encouraging like "Click any module to get started. I'm here i
       </div>
 
       <ModuleAIAssistant moduleName="WorkHub" moduleContext="WorkHub unified dashboard for contractors and customers with 15 AI-powered modules" />
+      <ModuleVoiceGuide moduleName="workhub-marketplace" />
     </div>
   );
 }

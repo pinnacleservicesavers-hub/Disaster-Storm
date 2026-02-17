@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { AlertTriangle, Send, CheckCircle2, XCircle, DollarSign, MapPin, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function ContractorAlertsDashboard() {
   const { toast } = useToast();
@@ -166,6 +167,7 @@ export default function ContractorAlertsDashboard() {
           </CardContent>
         </Card>
       </div>
+      <ModuleVoiceGuide moduleName="contractor-alerts-dashboard" />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function QuickFinance() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -234,6 +235,7 @@ export default function QuickFinance() {
         moduleName="QuickFinance"
         moduleContext="QuickFinance helps contractors offer payment plans to customers. It includes Pay-in-4, monthly financing options, and partner lenders. Contractors get paid upfront while customers pay over time. Help users understand financing options and how to close more deals."
       />
+      <ModuleVoiceGuide moduleName="quick-finance" />
     </div>
   );
 }

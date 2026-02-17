@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import { 
   TreePine, 
   MapPin, 
@@ -1349,6 +1350,7 @@ You can help users with:
 
 Always be proactive about mentioning active high-priority incidents and encourage contractors to claim jobs quickly. When speaking, use natural language and be conversational. Mention that you're continuously monitoring for new tree incidents 24/7.`}
       />
+      <ModuleVoiceGuide moduleName="tree-incident-tracker" />
     </div>
   );
 }

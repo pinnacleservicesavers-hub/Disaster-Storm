@@ -25,6 +25,7 @@ import {
 import { z } from 'zod';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 // Create damage report form schema with required fields only
 const damageReportFormSchema = z.object({
@@ -462,6 +463,7 @@ export default function DamageReport() {
         </Card>
       </main>
       <ModuleAIAssistant moduleName="Damage Report" />
+      <ModuleVoiceGuide moduleName="damage-report" />
     </div>
   );
 }

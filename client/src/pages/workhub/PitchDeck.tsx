@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const pitchSections = [
   {
@@ -356,6 +357,7 @@ export default function PitchDeck() {
           </div>
         </div>
       </div>
+      <ModuleVoiceGuide moduleName="pitch-deck" />
     </div>
   );
 }

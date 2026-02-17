@@ -17,6 +17,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const MOCK_CONTRACTORS = [
   {
@@ -309,6 +310,7 @@ export default function ContractorMatch() {
         moduleName="ContractorMatch"
         moduleContext="ContractorMatch uses AI to find and match customers with verified contractors. It shows match scores, ratings, reviews, response times, and verification status. Help users understand contractor profiles and make informed decisions about who to hire."
       />
+      <ModuleVoiceGuide moduleName="contractor-match" />
     </div>
   );
 }

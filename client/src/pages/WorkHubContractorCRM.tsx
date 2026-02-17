@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   LayoutDashboard, Users, Calendar, Clock, DollarSign, TrendingUp,
   ChevronRight, Bell, Settings, Filter, Search, MoreVertical,
@@ -430,6 +431,7 @@ export default function WorkHubContractorCRM() {
           </CardContent>
         </Card>
       </div>
+      <ModuleVoiceGuide moduleName="workhub-contractor-crm" />
     </div>
   );
 }

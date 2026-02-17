@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface DeploymentOpportunity {
   id: string;
@@ -432,6 +433,7 @@ export default function DeploymentIntelligence() {
         moduleName="Deployment Intelligence"
         moduleContext="Street-level damage detection with satellite imagery, AI damage analysis, and homeowner contact information for contractor deployment"
       />
+      <ModuleVoiceGuide moduleName="deployment-intelligence" />
     </div>
   );
 }

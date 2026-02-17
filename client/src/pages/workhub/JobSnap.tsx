@@ -23,6 +23,7 @@ import TeamInvite from '@/components/TeamInvite';
 import BeforeAfterComparison from '@/components/BeforeAfterComparison';
 import AIVideoGenerator from '@/components/AIVideoGenerator';
 import { Users, Film, SplitSquareHorizontal } from 'lucide-react';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface JobProject {
   id: string;
@@ -864,6 +865,7 @@ export default function JobSnap() {
         moduleName="JobSnap" 
         moduleContext="Job documentation tool for contractors to capture and organize before, during, and after photos of their work with timestamps and location data"
       />
+      <ModuleVoiceGuide moduleName="job-snap" />
     </div>
   );
 }

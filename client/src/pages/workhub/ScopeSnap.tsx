@@ -19,6 +19,7 @@ import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const TRADES = [
   { id: 'auto-detect', label: 'Auto-Detect (AI Decides)', icon: Sparkles, color: 'text-violet-600' },
@@ -642,6 +643,7 @@ DISCLAIMER: This is an AI-generated estimate based on visual analysis and local 
         moduleName="ScopeSnap"
         moduleContext="ScopeSnap is a multi-trade AI vision analysis tool supporting 12 contractor trades: tree services, roofing, HVAC, plumbing, electrical, painting, auto repair, flooring, fencing, concrete, and general contractor work. Users upload photos/videos and AI identifies work needed, detects issues, estimates costs, recommends trades, assesses safety, determines DIY feasibility, and lists required materials. It uses GPT-4 Vision for comprehensive analysis across all trades."
       />
+      <ModuleVoiceGuide moduleName="scope-snap" />
     </div>
   );
 }

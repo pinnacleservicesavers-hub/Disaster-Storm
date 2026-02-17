@@ -42,6 +42,7 @@ import ContractDocumentsComponent from "@/components/fema/ContractDocuments";
 import LocationIntelligenceComponent from "@/components/fema/LocationIntelligence";
 import StormTrackingComponent from "@/components/fema/StormTracking";
 import ProjectCommunicationsComponent from "@/components/fema/ProjectCommunications";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface LaborRate {
   id: string;
@@ -1921,6 +1922,7 @@ export default function FemaAuditDashboard() {
           )}
         </div>
       </div>
+      <ModuleVoiceGuide moduleName="fema-audit-dashboard" />
     </ModuleWrapper>
   );
 }

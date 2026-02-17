@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   Camera, Video, Upload, MapPin, Sparkles, CheckCircle,
   ArrowRight, ArrowLeft, Image, Loader2, Volume2, VolumeX,
@@ -3751,6 +3752,7 @@ IMPORTANT REMINDERS WHEN ANSWERING QUOTE QUESTIONS:
 
 Be friendly, use simple language (avoid jargon), and always offer to explain anything the homeowner doesn't understand. If they ask about something you can see in their photos/analysis, reference that specific information.`}
       />
+      <ModuleVoiceGuide moduleName="workhub-customer-portal" />
     </div>
   );
 }

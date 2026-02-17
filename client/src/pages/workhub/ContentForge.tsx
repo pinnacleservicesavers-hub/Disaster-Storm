@@ -22,6 +22,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { SiFacebook, SiInstagram, SiLinkedin, SiTiktok, SiGoogle, SiX } from 'react-icons/si';
 import { Link2, CheckCircle2 } from 'lucide-react';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface AdResult {
   adCopy: string;
@@ -1339,6 +1340,7 @@ export default function ContentForge() {
         moduleName="ContentForge AI Ad Studio"
         moduleContext="ContentForge AI Ad Studio lets users describe any ad they want and AI creates it — images, copy, headlines, hashtags, video concepts, and full campaigns. Users can upload their own photos and videos or take them with the camera to include in their ad. Help users create amazing advertising content by describing what they want. They can create image ads, video concepts, or full multi-platform campaigns for any industry."
       />
+      <ModuleVoiceGuide moduleName="content-forge" />
     </div>
   );
 }

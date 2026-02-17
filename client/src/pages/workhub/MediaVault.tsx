@@ -24,6 +24,7 @@ import { Users, SplitSquareHorizontal } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface CreativeResult {
   adCopy?: string;
@@ -2599,6 +2600,7 @@ function ToolsAndExport({ createdItems }: { createdItems: CreativeResult[] }) {
           <CardContent className="pt-5 text-center"><Share2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" /><h4 className="font-bold text-sm">ROI Calculator</h4><p className="text-xs text-slate-500 mt-1">Estimate return on ad spend</p></CardContent>
         </Card>
       </div>
+      <ModuleVoiceGuide moduleName="media-vault" />
     </div>
   );
 }

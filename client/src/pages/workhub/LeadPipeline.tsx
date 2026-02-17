@@ -20,6 +20,7 @@ import {
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const SERVICE_CATEGORIES = [
   { id: 'tree', label: 'Tree Service', icon: Trees, color: 'bg-emerald-600' },
@@ -714,6 +715,7 @@ SALES PSYCHOLOGY FOR LEAD CONVERSION:
 
 Help users move leads through the pipeline with proven psychology.`}
       />
+      <ModuleVoiceGuide moduleName="lead-pipeline" />
     </div>
   );
 }

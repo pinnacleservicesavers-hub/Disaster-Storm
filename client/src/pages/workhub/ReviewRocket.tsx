@@ -13,6 +13,7 @@ import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function ReviewRocket() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -216,6 +217,7 @@ export default function ReviewRocket() {
         moduleName="ReviewRocket"
         moduleContext="ReviewRocket automates review collection and reputation management. It sends review requests after jobs, distributes reviews to Google and Facebook, and uses AI to respond to reviews. Help users build and maintain their 5-star reputation."
       />
+      <ModuleVoiceGuide moduleName="review-rocket" />
     </div>
   );
 }

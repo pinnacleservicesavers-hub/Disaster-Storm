@@ -23,6 +23,7 @@ import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, 
 import { apiRequest } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 interface Lead {
   id: string;
@@ -1485,6 +1486,7 @@ export default function Leads() {
         </div>
       )}
       <ModuleAIAssistant moduleName="Lead Management" />
+      <ModuleVoiceGuide moduleName="leads" />
     </div>
   );
 }

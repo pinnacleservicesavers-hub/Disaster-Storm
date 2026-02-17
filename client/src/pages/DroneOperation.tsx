@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 // Back button component
 function BackButton() {
@@ -622,6 +623,7 @@ export default function DroneOperation() {
         </div>
       </FadeIn>
       <ModuleAIAssistant moduleName="Drone Operations" />
+      <ModuleVoiceGuide moduleName="drone-operation" />
     </div>
   );
 }

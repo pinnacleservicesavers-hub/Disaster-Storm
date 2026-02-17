@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   LayoutDashboard, Users, Calendar, Briefcase, CreditCard,
   Star, TrendingUp, Image, Settings, Bell, Search,
@@ -691,6 +692,7 @@ export default function WorkHubContractorDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ModuleVoiceGuide moduleName="workhub-contractor-dashboard" />
     </div>
   );
 }

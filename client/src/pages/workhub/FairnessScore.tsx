@@ -13,6 +13,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function FairnessScore() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -210,6 +211,7 @@ export default function FairnessScore() {
         moduleName="FairnessScore"
         moduleContext="FairnessScore is a trust transparency system that calculates contractor reliability scores based on pricing accuracy, on-time arrival, completion speed, and customer satisfaction. Help users understand their scores and how to improve them."
       />
+      <ModuleVoiceGuide moduleName="fairness-score" />
     </div>
   );
 }

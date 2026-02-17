@@ -1,4 +1,5 @@
 import ModuleAIAssistant from "@/components/ModuleAIAssistant";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 export default function HomeownerPortal() {
   return (
@@ -38,6 +39,7 @@ export default function HomeownerPortal() {
           </div>
         </div>
       </div>
+      <ModuleVoiceGuide moduleName="homeowner-portal" />
     </main>
   );
 }

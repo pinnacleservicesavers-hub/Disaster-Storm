@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import { 
   Building2, 
   Users, 
@@ -916,6 +917,7 @@ export default function EmergencyContractorReadiness() {
           </DialogContent>
         </Dialog>
       </div>
+      <ModuleVoiceGuide moduleName="emergency-contractor-readiness" />
     </div>
   );
 }

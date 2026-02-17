@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import ModuleAIAssistant from "@/components/ModuleAIAssistant";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import {
   ArrowLeft, FileText, Shield, Upload, Save, CheckCircle2, AlertTriangle,
   Loader2, Search, Download, Trash2, Clock, Target, Zap, Building2,
@@ -882,6 +883,7 @@ export default function AutoFormFiller() {
         moduleName="Auto Form Filler AI"
         moduleContext="This is the Auto Form Filler AI module — a Digital Compliance Vault and smart form auto-filling system for contractors. Help users: fill out their master business profile (EIN, UEI, CAGE code, NAICS, insurance, banking, certifications), upload and organize compliance documents (W-9, insurance certs, licenses, OSHA logs, MSAs, rate sheets), and auto-fill government forms (FEMA, SAM.gov, vendor onboarding, ACH, SBA loans, bid packets). Explain what each field means, what documents they need, and guide them through the entire process. You know about government contracting, FEMA compliance, small business certifications (SDVOSB, WOSB, HUBZone, 8a, DBE), and procurement processes."
       />
+      <ModuleVoiceGuide moduleName="auto-form-filler" />
     </div>
   );
 }

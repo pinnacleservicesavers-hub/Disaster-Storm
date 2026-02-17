@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ModuleAIAssistant from "@/components/ModuleAIAssistant";
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const CATEGORIES = [
   { id: "all", name: "All Categories", icon: Globe },
@@ -1210,6 +1211,7 @@ export default function CrewLinkExchange() {
       </div>
 
       <ModuleAIAssistant moduleContext="CrewLink Exchange workforce and equipment marketplace" />
+      <ModuleVoiceGuide moduleName="crewlink-exchange" />
     </div>
   );
 }
