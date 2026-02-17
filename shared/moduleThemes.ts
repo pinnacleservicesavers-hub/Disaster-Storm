@@ -374,6 +374,20 @@ export const MODULE_THEMES: Record<string, ModuleTheme> = {
     iconTheme: 'light',
     headingWeight: 'bold',
     heroAnimation: 'fade'
+  },
+  'connected-accounts': {
+    id: 'connected-accounts',
+    name: 'Connected Accounts',
+    description: 'Integrations Hub - Social Media, Ads & Calendars',
+    primaryColor: '#06b6d4',
+    accentColor: '#3b82f6',
+    textColor: '#ecfeff',
+    dallePrompt: 'Professional digital integrations hub showing connected social media platforms and calendar apps floating as holographic icons around a central command dashboard, cyan and blue color scheme with glowing connection lines, modern tech aesthetic, photorealistic 8K',
+    glassEffect: true,
+    cardOpacity: 0.15,
+    iconTheme: 'light',
+    headingWeight: 'bold',
+    heroAnimation: 'fade'
   }
 };
 

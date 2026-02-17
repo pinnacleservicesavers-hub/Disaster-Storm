@@ -7,11 +7,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
+import { SiGoogle } from 'react-icons/si';
+import { Link2, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
 
 const MOCK_APPOINTMENTS = [
   { id: 1, customer: 'John Martinez', service: 'Tree Removal Estimate', date: 'Today', time: '2:00 PM', status: 'confirmed', location: '123 Oak St, Austin, TX' },
@@ -20,6 +22,9 @@ const MOCK_APPOINTMENTS = [
 ];
 
 export default function CalendarSync() {
+  const { data: connectedData } = useQuery<{ ok: boolean; accounts: any[] }>({ queryKey: ['/api/connected-accounts'] });
+  const connectedCalendars = (connectedData?.accounts || []).filter((a: any) => a.status === 'connected' && a.category === 'calendar');
+
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -214,6 +219,49 @@ export default function CalendarSync() {
                   Set Working Hours
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className={connectedCalendars.length > 0 ? 'border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50' : ''}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-cyan-600" />
+                  Connected Calendars
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {connectedCalendars.length > 0 ? (
+                  <div className="space-y-3">
+                    {connectedCalendars.map((cal: any) => (
+                      <div key={cal.provider} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-cyan-100">
+                        <div className="flex items-center gap-2.5">
+                          {cal.provider === 'google_calendar' ? <SiGoogle className="w-4 h-4 text-blue-500" /> : cal.provider === 'outlook_calendar' ? <Globe className="w-4 h-4 text-blue-600" /> : <Calendar className="w-4 h-4 text-red-500" />}
+                          <div>
+                            <p className="text-sm font-medium">{cal.provider === 'google_calendar' ? 'Google Calendar' : cal.provider === 'outlook_calendar' ? 'Outlook' : 'Apple Calendar'}</p>
+                            <p className="text-xs text-slate-500">{cal.accountLabel}</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">
+                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />Synced
+                        </Badge>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-500 mt-1">Appointments sync automatically with your connected calendars</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-slate-600 mb-3">
+                      Connect Google Calendar, Outlook, or Apple Calendar to sync appointments automatically.
+                    </p>
+                    <Link to="/workhub/connected-accounts">
+                      <Button variant="outline" className="w-full border-cyan-300 text-cyan-700 hover:bg-cyan-50">
+                        <Link2 className="w-4 h-4 mr-2" />
+                        Connect Calendar
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

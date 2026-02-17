@@ -73,6 +73,7 @@ const WorkHubContractorMatch = lazy(() => import("./pages/workhub/ContractorMatc
 const WorkHubCalendarSync = lazy(() => import("./pages/workhub/CalendarSync"));
 const WorkHubJobFlow = lazy(() => import("./pages/workhub/JobFlow"));
 const WorkHubMediaVault = lazy(() => import("./pages/workhub/MediaVault"));
+const WorkHubConnectedAccounts = lazy(() => import("./pages/workhub/ConnectedAccounts"));
 const WorkHubCloseBot = lazy(() => import("./pages/workhub/CloseBot"));
 const WorkHubPayStream = lazy(() => import("./pages/workhub/PayStream"));
 const WorkHubReviewRocket = lazy(() => import("./pages/workhub/ReviewRocket"));
@@ -305,6 +306,7 @@ export default function App() {
           <Route path="/workhub/calendarsync" element={<ProtectedRoute><WorkHubCalendarSync /></ProtectedRoute>} />
           <Route path="/workhub/jobflow" element={<ProtectedRoute><WorkHubJobFlow /></ProtectedRoute>} />
           <Route path="/workhub/mediavault" element={<ProtectedRoute><WorkHubMediaVault /></ProtectedRoute>} />
+          <Route path="/workhub/connected-accounts" element={<ProtectedRoute><WorkHubConnectedAccounts /></ProtectedRoute>} />
           <Route path="/workhub/closebot" element={<ProtectedRoute><WorkHubCloseBot /></ProtectedRoute>} />
           <Route path="/workhub/paystream" element={<ProtectedRoute><WorkHubPayStream /></ProtectedRoute>} />
           <Route path="/workhub/reviewrocket" element={<ProtectedRoute><WorkHubReviewRocket /></ProtectedRoute>} />

@@ -25,7 +25,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
-import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors, contractorSubscriptions, qualifiedLeads } from "@shared/schema";
+import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors, contractorSubscriptions, qualifiedLeads, connectedAccounts } from "@shared/schema";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
@@ -2594,6 +2594,50 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   // ---- Auto Form Filler AI Routes ----
   app.use('/api/form-filler', autoFormFillerRouter);
   console.log('📁 Auto Form Filler AI routes registered - /api/form-filler/*');
+
+  // ---- Connected Accounts Routes ----
+  app.get('/api/connected-accounts', async (req, res) => {
+    try {
+      const contractorId = (req as any).session?.userId || 'admin-001';
+      const accounts = await db.select().from(connectedAccounts).where(eq(connectedAccounts.contractorId, contractorId));
+      res.json({ ok: true, accounts });
+    } catch (err) {
+      res.json({ ok: true, accounts: [] });
+    }
+  });
+
+  app.post('/api/connected-accounts/connect', async (req, res) => {
+    try {
+      const { provider, category, accountLabel } = req.body;
+      const contractorId = (req as any).session?.userId || 'admin-001';
+      const existing = await db.select().from(connectedAccounts)
+        .where(and(eq(connectedAccounts.contractorId, contractorId), eq(connectedAccounts.provider, provider)));
+      if (existing.length > 0) {
+        await db.update(connectedAccounts)
+          .set({ status: 'connected', accountLabel, connectedAt: new Date() })
+          .where(eq(connectedAccounts.id, existing[0].id));
+      } else {
+        await db.insert(connectedAccounts).values({ contractorId, provider, category, accountLabel, status: 'connected', connectedAt: new Date() });
+      }
+      res.json({ ok: true, message: `Connected to ${provider}` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to connect account' });
+    }
+  });
+
+  app.post('/api/connected-accounts/disconnect', async (req, res) => {
+    try {
+      const { provider } = req.body;
+      const contractorId = (req as any).session?.userId || 'admin-001';
+      await db.update(connectedAccounts)
+        .set({ status: 'disconnected', accountLabel: null, connectedAt: null })
+        .where(and(eq(connectedAccounts.contractorId, contractorId), eq(connectedAccounts.provider, provider)));
+      res.json({ ok: true, message: `Disconnected from ${provider}` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to disconnect account' });
+    }
+  });
+  console.log('🔗 Connected Accounts routes registered - Social media, ads, and calendar integrations');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);

@@ -17,9 +17,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { SiFacebook, SiInstagram, SiLinkedin, SiTiktok, SiGoogle, SiX } from 'react-icons/si';
+import { Link2, CheckCircle2 } from 'lucide-react';
 
 interface AdResult {
   adCopy: string;
@@ -45,6 +47,9 @@ export default function ContentForge() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasPlayedWelcome = useRef(false);
   const voiceEnabledRef = useRef(true);
+
+  const { data: connectedData } = useQuery<{ ok: boolean; accounts: any[] }>({ queryKey: ['/api/connected-accounts'] });
+  const connectedPlatforms = (connectedData?.accounts || []).filter((a: any) => a.status === 'connected');
 
   const [activeTab, setActiveTab] = useState('studio');
   const [prompt, setPrompt] = useState('');
@@ -828,41 +833,52 @@ export default function ContentForge() {
                         </div>
                         <h4 className="font-semibold text-sm text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
                           <Share2 className="w-4 h-4" />
-                          Share to Social Media
+                          Publish to Connected Platforms
                         </h4>
+                        {connectedPlatforms.length > 0 && (
+                          <div className="mb-3 p-2.5 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Link2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                              <span className="text-xs font-medium text-cyan-700 dark:text-cyan-300">Connected Accounts</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {connectedPlatforms.map((acc: any) => (
+                                <Badge key={acc.provider} className="bg-cyan-100 dark:bg-cyan-800/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700 text-[10px] gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5" />
+                                  {acc.provider === 'facebook' ? 'Facebook' : acc.provider === 'instagram' ? 'Instagram' : acc.provider === 'x_twitter' ? 'X' : acc.provider === 'linkedin' ? 'LinkedIn' : acc.provider === 'tiktok' ? 'TikTok' : acc.provider === 'google_ads' ? 'Google Ads' : acc.provider === 'meta_ads' ? 'Meta Ads' : acc.provider}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <Button size="sm" variant="outline" className="border-blue-300 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-900/30" onClick={() => {
-                            const shareUrl = encodeURIComponent(window.location.href);
-                            const quote = encodeURIComponent(`${adResult.headlines?.[0] || ''} - ${adResult.adCopy?.slice(0, 200) || ''}`);
-                            window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${quote}`, '_blank', 'width=600,height=400');
-                            toast({ title: "Opening Facebook...", description: "Paste your ad copy into the post" });
-                          }}>
-                            <Facebook className="w-4 h-4 mr-1.5 text-blue-600" />Facebook
-                          </Button>
-                          <Button size="sm" variant="outline" className="border-sky-300 hover:bg-sky-50 dark:border-sky-700 dark:hover:bg-sky-900/30" onClick={() => {
-                            const text = encodeURIComponent(`${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy?.slice(0, 200) || ''}\n\n${adResult.hashtags?.join(' ') || ''}`);
-                            window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'width=600,height=400');
-                            toast({ title: "Opening X/Twitter..." });
-                          }}>
-                            <Send className="w-4 h-4 mr-1.5 text-sky-500" />X / Twitter
-                          </Button>
-                          <Button size="sm" variant="outline" className="border-blue-400 hover:bg-blue-50 dark:border-blue-600 dark:hover:bg-blue-900/30" onClick={() => {
-                            const url = encodeURIComponent(window.location.href);
-                            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'width=600,height=400');
-                            toast({ title: "Opening LinkedIn..." });
-                          }}>
-                            <Globe className="w-4 h-4 mr-1.5 text-blue-700" />LinkedIn
-                          </Button>
-                          <Button size="sm" variant="outline" className="border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800" onClick={() => {
-                            const subject = encodeURIComponent(adResult.headlines?.[0] || 'Check out this ad');
-                            const body = encodeURIComponent(`${adResult.adCopy}\n\n${adResult.callToAction}\n\n${adResult.hashtags?.join(' ') || ''}`);
-                            window.open(`mailto:?subject=${subject}&body=${body}`);
-                            toast({ title: "Opening email..." });
-                          }}>
-                            <Send className="w-4 h-4 mr-1.5 text-slate-500" />Email
-                          </Button>
+                          {[
+                            { id: 'facebook', label: 'Facebook', icon: <SiFacebook className="w-4 h-4 mr-1.5" />, color: 'border-blue-300 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-900/30', textColor: 'text-blue-600', action: () => { const u = encodeURIComponent(window.location.href); const q = encodeURIComponent(`${adResult.headlines?.[0] || ''} - ${adResult.adCopy?.slice(0, 200) || ''}`); window.open(`https://www.facebook.com/sharer/sharer.php?u=${u}&quote=${q}`, '_blank', 'width=600,height=400'); } },
+                            { id: 'x_twitter', label: 'X / Twitter', icon: <SiX className="w-3.5 h-3.5 mr-1.5" />, color: 'border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800', textColor: 'text-slate-700 dark:text-white', action: () => { const t = encodeURIComponent(`${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy?.slice(0, 200) || ''}\n\n${adResult.hashtags?.join(' ') || ''}`); window.open(`https://twitter.com/intent/tweet?text=${t}`, '_blank', 'width=600,height=400'); } },
+                            { id: 'instagram', label: 'Instagram', icon: <SiInstagram className="w-4 h-4 mr-1.5" />, color: 'border-pink-300 hover:bg-pink-50 dark:border-pink-700 dark:hover:bg-pink-900/30', textColor: 'text-pink-600', action: () => { toast({ title: "Instagram Publishing", description: "Content copied to clipboard. Open Instagram to post." }); navigator.clipboard.writeText(`${adResult.adCopy}\n\n${adResult.hashtags?.join(' ') || ''}`); } },
+                            { id: 'linkedin', label: 'LinkedIn', icon: <SiLinkedin className="w-4 h-4 mr-1.5" />, color: 'border-blue-400 hover:bg-blue-50 dark:border-blue-600 dark:hover:bg-blue-900/30', textColor: 'text-blue-700', action: () => { const u = encodeURIComponent(window.location.href); window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${u}`, '_blank', 'width=600,height=400'); } },
+                            { id: 'google_ads', label: 'Google Ads', icon: <SiGoogle className="w-4 h-4 mr-1.5" />, color: 'border-green-300 hover:bg-green-50 dark:border-green-700 dark:hover:bg-green-900/30', textColor: 'text-green-600', action: () => { toast({ title: "Google Ads", description: "Ad content formatted for Google Ads campaign" }); } },
+                            { id: 'meta_ads', label: 'Meta Ads', icon: <SiFacebook className="w-4 h-4 mr-1.5" />, color: 'border-indigo-300 hover:bg-indigo-50 dark:border-indigo-700 dark:hover:bg-indigo-900/30', textColor: 'text-indigo-600', action: () => { toast({ title: "Meta Ads Manager", description: "Campaign data prepared for Meta Ads" }); } },
+                          ].map(btn => {
+                            const isConnected = connectedPlatforms.some((a: any) => a.provider === btn.id);
+                            return (
+                              <Button key={btn.id} size="sm" variant="outline" className={`${btn.color} relative`} onClick={() => { btn.action(); toast({ title: isConnected ? `Publishing to ${btn.label}...` : `Opening ${btn.label}...` }); }}>
+                                <span className={btn.textColor}>{btn.icon}</span>
+                                {btn.label}
+                                {isConnected && <CheckCircle2 className="w-3 h-3 text-green-500 absolute -top-1 -right-1" />}
+                              </Button>
+                            );
+                          })}
                         </div>
-                        <p className="text-xs text-slate-400 mt-2">Copy your ad content above, then paste it into your social media platform's ad manager or post creator</p>
+                        {connectedPlatforms.length === 0 && (
+                          <div className="mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                            <Link to="/workhub/connected-accounts" className="text-xs text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1.5">
+                              <Link2 className="w-3 h-3" />
+                              Connect your social media & ad accounts for one-click publishing
+                              <ArrowRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 

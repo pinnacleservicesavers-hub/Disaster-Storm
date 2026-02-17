@@ -9761,3 +9761,18 @@ export const formFillRuns = pgTable("form_fill_runs", {
 export const insertFormFillRunSchema = createInsertSchema(formFillRuns).omit({ id: true, createdAt: true });
 export type FormFillRun = typeof formFillRuns.$inferSelect;
 export type InsertFormFillRun = z.infer<typeof insertFormFillRunSchema>;
+
+export const connectedAccounts = pgTable("connected_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  category: varchar("category", { length: 30 }).notNull(),
+  accountLabel: text("account_label"),
+  status: varchar("status", { length: 20 }).default("disconnected"),
+  connectedAt: timestamp("connected_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConnectedAccountSchema = createInsertSchema(connectedAccounts).omit({ id: true, createdAt: true });
+export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
+export type InsertConnectedAccount = z.infer<typeof insertConnectedAccountSchema>;

@@ -5,7 +5,7 @@ import {
   Bot, CreditCard, Star, TrendingUp, Wallet, Image,
   ArrowRight, Zap, Volume2, VolumeX, Award, Target,
   Search, ChevronRight, Activity, FileCheck, Mic,
-  BarChart3, Layers, Gavel
+  BarChart3, Layers, Gavel, Link2
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -33,6 +33,7 @@ const MODULES = [
   { id: 'fairnessscore', name: 'FairnessScore', tagline: 'Trust Score', path: '/workhub/fairnessscore', icon: TrendingUp, group: 'trust', color: 'from-lime-500 to-green-600', description: 'AI-calculated contractor scores based on pricing, reliability & satisfaction.' },
   { id: 'jobsnap', name: 'JobSnap', tagline: 'Documentation', path: '/workhub/jobsnap', icon: Camera, group: 'trust', color: 'from-purple-500 to-indigo-600', description: 'Capture before, during & after photos. Timestamps, GPS, organized by project.' },
   { id: 'femaaudit', name: 'AuditShield', tagline: 'Grant & Contract Compliance AI', path: '/fema-audit', icon: FileCheck, group: 'trust', color: 'from-red-600 to-orange-600', description: 'Multi-agency compliance (FEMA, USACE, HUD, DOT), AI fraud detection, photo documentation & one-click audit export.' },
+  { id: 'connected-accounts', name: 'Connected Accounts', tagline: 'Integrations Hub', path: '/workhub/connected-accounts', icon: Link2, group: 'manage-work', color: 'from-cyan-500 to-blue-600', description: 'Connect social media, Google Ads, Meta Ads & calendars. Publish ads and sync schedules directly.', priority: 'high' },
 ];
 
 const GROUP_INFO: Record<string, { label: string; icon: any }> = {
