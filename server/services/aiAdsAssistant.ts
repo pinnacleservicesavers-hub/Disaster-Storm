@@ -137,7 +137,9 @@ Requirements:
 - Professional aesthetic matching the industry
 - Clean, uncluttered composition
 - Trust-building visuals
-- No text overlay needed`;
+- CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately.
+- Do not include any signage, banners, labels, captions, or written elements of any kind.
+- No text overlay needed — the image should contain ONLY visual imagery, no characters or glyphs.`;
 
     const response = await this.openai.images.generate({
       model: 'dall-e-3',
@@ -433,7 +435,8 @@ Make it exceptional. Make it unforgettable.`;
       try {
         const imagePrompt = `Create a stunning, professional advertising visual for: ${request.prompt}. 
 Style: ${request.style || 'Modern, bold, eye-catching'}.
-Make it look like a premium agency-produced ad image. Ultra high quality, cinematic lighting, professional composition. No text or words in the image.`;
+Make it look like a premium agency-produced ad image. Ultra high quality, cinematic lighting, professional composition.
+CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately. Do not include any signage, banners, labels, captions, or written elements of any kind.`;
         
         const imgResponse = await this.openai.images.generate({
           model: 'dall-e-3',
@@ -453,7 +456,7 @@ Make it look like a premium agency-produced ad image. Ultra high quality, cinema
           });
           const imgResponse = await replitOpenai.images.generate({
             model: 'gpt-image-1',
-            prompt: `Stunning professional ad visual for: ${request.prompt}. ${request.style || 'Modern, bold, eye-catching'}. Ultra high quality, no text.`,
+            prompt: `Stunning professional ad visual for: ${request.prompt}. ${request.style || 'Modern, bold, eye-catching'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Do not include any signage, banners, labels, captions, or written elements.`,
             n: 1,
             size: '1024x1024',
           });
@@ -473,7 +476,7 @@ Make it look like a premium agency-produced ad image. Ultra high quality, cinema
 
   async generateImageOnly(prompt: string, style?: string): Promise<string> {
     try {
-      const imagePrompt = `${prompt}. Style: ${style || 'Professional, cinematic, high-end advertising'}. No text or watermarks. Ultra high quality.`;
+      const imagePrompt = `${prompt}. Style: ${style || 'Professional, cinematic, high-end advertising'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately. Do not include any signage, banners, labels, captions, or written elements of any kind.`;
       const response = await this.openai.images.generate({
         model: 'dall-e-3',
         prompt: imagePrompt,
@@ -490,7 +493,7 @@ Make it look like a premium agency-produced ad image. Ultra high quality, cinema
       });
       const response = await replitOpenai.images.generate({
         model: 'gpt-image-1',
-        prompt: `${prompt}. ${style || 'Professional, cinematic'}. No text. Ultra high quality.`,
+        prompt: `${prompt}. ${style || 'Professional, cinematic'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Do not include any signage, banners, labels, captions, or written elements.`,
         n: 1,
         size: '1024x1024',
       });

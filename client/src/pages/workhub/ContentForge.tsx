@@ -536,13 +536,24 @@ export default function ContentForge() {
                               <Button size="sm" variant="secondary" onClick={() => setImageFullscreen(true)}>
                                 <Maximize2 className="w-4 h-4 mr-1" /> View Full
                               </Button>
-                              <Button size="sm" variant="secondary" onClick={() => {
+                              <Button size="sm" variant="secondary" onClick={async () => {
                                 if (adResult.imageUrl) {
-                                  const a = document.createElement('a');
-                                  a.href = adResult.imageUrl;
-                                  a.download = 'ai-ad-creative.png';
-                                  a.target = '_blank';
-                                  a.click();
+                                  try {
+                                    const response = await fetch(adResult.imageUrl);
+                                    const blob = await response.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'ai-ad-creative.png';
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  } catch {
+                                    const a = document.createElement('a');
+                                    a.href = adResult.imageUrl;
+                                    a.download = 'ai-ad-creative.png';
+                                    a.target = '_blank';
+                                    a.click();
+                                  }
                                 }
                               }}>
                                 <Download className="w-4 h-4 mr-1" /> Download
@@ -727,7 +738,7 @@ export default function ContentForge() {
                           <Check className="w-5 h-5 text-green-600" />
                           Your Ad Is Ready!
                         </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                           <Button
                             variant="outline"
                             className="flex flex-col items-center gap-1 h-auto py-3 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
@@ -757,8 +768,8 @@ export default function ContentForge() {
                           <Button
                             variant="outline"
                             className="flex flex-col items-center gap-1 h-auto py-3 border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30"
-                            onClick={() => {
-                              const content = `📢 ${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy}\n\n👉 ${adResult.callToAction}\n\n${adResult.hashtags?.join(' ')}`;
+                            onClick={async () => {
+                              const content = `${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy}\n\n${adResult.callToAction}\n\n${adResult.hashtags?.join(' ')}`;
                               const blob = new Blob([content], { type: 'text/plain' });
                               const url = URL.createObjectURL(blob);
                               const a = document.createElement('a');
@@ -767,35 +778,91 @@ export default function ContentForge() {
                               a.click();
                               URL.revokeObjectURL(url);
                               if (adResult.imageUrl) {
-                                const imgLink = document.createElement('a');
-                                imgLink.href = adResult.imageUrl;
-                                imgLink.download = `ad-image-${Date.now()}.png`;
-                                imgLink.target = '_blank';
-                                imgLink.click();
+                                try {
+                                  const resp = await fetch(adResult.imageUrl);
+                                  if (!resp.ok) throw new Error('Download failed');
+                                  const imgBlob = await resp.blob();
+                                  const imgUrl = URL.createObjectURL(imgBlob);
+                                  const imgLink = document.createElement('a');
+                                  imgLink.href = imgUrl;
+                                  imgLink.download = `ad-image-${Date.now()}.png`;
+                                  imgLink.click();
+                                  URL.revokeObjectURL(imgUrl);
+                                } catch {
+                                  window.open(adResult.imageUrl, '_blank');
+                                }
                               }
                               toast({ title: "Downloaded!", description: "Ad content and image saved to your device" });
                             }}
                           >
                             <Download className="w-5 h-5 text-purple-500" />
-                            <span className="text-xs">Download</span>
+                            <span className="text-xs">Download All</span>
                           </Button>
                           <Button
                             variant="outline"
                             className="flex flex-col items-center gap-1 h-auto py-3 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
-                            onClick={() => {
-                              const text = `${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy}\n\n${adResult.callToAction}`;
-                              if (navigator.share) {
-                                navigator.share({ title: adResult.headlines?.[0] || 'My Ad', text }).catch(() => {});
+                            onClick={async () => {
+                              if (adResult.imageUrl) {
+                                try {
+                                  const resp = await fetch(adResult.imageUrl);
+                                  if (!resp.ok) throw new Error('Download failed');
+                                  const imgBlob = await resp.blob();
+                                  const imgUrl = URL.createObjectURL(imgBlob);
+                                  const imgLink = document.createElement('a');
+                                  imgLink.href = imgUrl;
+                                  imgLink.download = `ad-flyer-${Date.now()}.png`;
+                                  imgLink.click();
+                                  URL.revokeObjectURL(imgUrl);
+                                  toast({ title: "Flyer Downloaded!", description: "Image saved to your device" });
+                                } catch {
+                                  window.open(adResult.imageUrl, '_blank');
+                                }
                               } else {
-                                copyToClipboard(text, 'Ad for sharing');
-                                toast({ title: "Copied!", description: "Ad copied - paste it anywhere to share" });
+                                toast({ title: "No image", description: "Generate an image first", variant: "destructive" });
                               }
                             }}
                           >
-                            <Share2 className="w-5 h-5 text-green-500" />
-                            <span className="text-xs">Share / Post</span>
+                            <Download className="w-5 h-5 text-green-500" />
+                            <span className="text-xs">Download Flyer</span>
                           </Button>
                         </div>
+                        <h4 className="font-semibold text-sm text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                          <Share2 className="w-4 h-4" />
+                          Share to Social Media
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <Button size="sm" variant="outline" className="border-blue-300 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-900/30" onClick={() => {
+                            const shareUrl = encodeURIComponent(window.location.href);
+                            const quote = encodeURIComponent(`${adResult.headlines?.[0] || ''} - ${adResult.adCopy?.slice(0, 200) || ''}`);
+                            window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${quote}`, '_blank', 'width=600,height=400');
+                            toast({ title: "Opening Facebook...", description: "Paste your ad copy into the post" });
+                          }}>
+                            <Facebook className="w-4 h-4 mr-1.5 text-blue-600" />Facebook
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-sky-300 hover:bg-sky-50 dark:border-sky-700 dark:hover:bg-sky-900/30" onClick={() => {
+                            const text = encodeURIComponent(`${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy?.slice(0, 200) || ''}\n\n${adResult.hashtags?.join(' ') || ''}`);
+                            window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'width=600,height=400');
+                            toast({ title: "Opening X/Twitter..." });
+                          }}>
+                            <Send className="w-4 h-4 mr-1.5 text-sky-500" />X / Twitter
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-blue-400 hover:bg-blue-50 dark:border-blue-600 dark:hover:bg-blue-900/30" onClick={() => {
+                            const url = encodeURIComponent(window.location.href);
+                            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'width=600,height=400');
+                            toast({ title: "Opening LinkedIn..." });
+                          }}>
+                            <Globe className="w-4 h-4 mr-1.5 text-blue-700" />LinkedIn
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800" onClick={() => {
+                            const subject = encodeURIComponent(adResult.headlines?.[0] || 'Check out this ad');
+                            const body = encodeURIComponent(`${adResult.adCopy}\n\n${adResult.callToAction}\n\n${adResult.hashtags?.join(' ') || ''}`);
+                            window.open(`mailto:?subject=${subject}&body=${body}`);
+                            toast({ title: "Opening email..." });
+                          }}>
+                            <Send className="w-4 h-4 mr-1.5 text-slate-500" />Email
+                          </Button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">Copy your ad content above, then paste it into your social media platform's ad manager or post creator</p>
                       </CardContent>
                     </Card>
 
