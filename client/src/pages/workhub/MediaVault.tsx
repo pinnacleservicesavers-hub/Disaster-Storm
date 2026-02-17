@@ -70,12 +70,11 @@ export default function MediaVault() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
 
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [isLoadingVoice, setIsLoadingVoice] = useState(false);
 
   const mediaVaultGuideScript = "Welcome to MediaVault Creative Studio, your all-in-one media powerhouse. This is where you store, organize, and protect all your job site photos and videos in one secure place. The Upload Center lets you drag and drop files, or capture photos and video directly from your camera. In the AI Video tab, just describe any video concept and AI creates a full storyboard with scenes, voiceover scripts, music suggestions, and visual direction. Flyers and Ads generates professional promotional materials instantly — describe what you want and AI creates the design with images and copy. The Brochures tab creates full multi-page campaigns with cover panels, service listings, testimonials, and contact info. Sound Studio handles radio ads, voiceovers, and audio content. And the Campaigns tab ties everything together for coordinated marketing across all your platforms. This is your creative team in a box — just describe what you need and I'll build it for you! I'm Rachel, and I'm here to help.";
 
   const stopAudio = () => {
-    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -83,44 +82,41 @@ export default function MediaVault() {
     setIsPlaying(false);
   };
 
-  const speakText = (text: string) => {
+  const speakWithTTS = async (text: string) => {
     if (!voiceEnabledRef.current) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(v => /samantha|karen|victoria|zira|female|fiona|moira|tessa/i.test(v.name))
-      || voices.find(v => /google.*us.*female|google.*uk.*female/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (femaleVoice) utterance.voice = femaleVoice;
-    utterance.rate = 1.0;
-    utterance.pitch = 1.1;
-    utterance.volume = 1.0;
-    utterance.onstart = () => setIsPlaying(true);
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
-    speechRef.current = utterance;
-    setIsPlaying(true);
-    window.speechSynthesis.speak(utterance);
+    stopAudio();
+    setIsLoadingVoice(true);
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const data = await res.json();
+      if (data.audioBase64 && audioRef.current) {
+        const audioSrc = `data:audio/${data.format || 'mp3'};base64,${data.audioBase64}`;
+        audioRef.current.src = audioSrc;
+        audioRef.current.onended = () => setIsPlaying(false);
+        setIsPlaying(true);
+        setIsLoadingVoice(false);
+        await audioRef.current.play().catch(() => setIsPlaying(false));
+      } else {
+        setIsLoadingVoice(false);
+      }
+    } catch (err) {
+      console.error('Voice guide error:', err);
+      setIsLoadingVoice(false);
+      setIsPlaying(false);
+    }
   };
 
-  const [voicesLoaded, setVoicesLoaded] = useState(false);
   useEffect(() => {
-    const loadVoices = () => {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length > 0) setVoicesLoaded(true);
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
-  }, []);
-
-  useEffect(() => {
-    if (!hasPlayedWelcome.current && voiceEnabledRef.current && voicesLoaded) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
       hasPlayedWelcome.current = true;
-      setTimeout(() => speakText(mediaVaultGuideScript), 500);
+      setTimeout(() => speakWithTTS(mediaVaultGuideScript), 800);
     }
-  }, [voicesLoaded]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -138,7 +134,7 @@ export default function MediaVault() {
   };
 
   const playRachelVoice = (message: string) => {
-    if (voiceEnabledRef.current) speakText(message);
+    if (voiceEnabledRef.current) speakWithTTS(message);
   };
 
   const createMutation = useMutation({
@@ -400,16 +396,19 @@ export default function MediaVault() {
                 onClick={() => {
                   setIsVoiceEnabled(true);
                   voiceEnabledRef.current = true;
-                  speakText(mediaVaultGuideScript);
+                  speakWithTTS(mediaVaultGuideScript);
                 }}
+                disabled={isLoadingVoice}
                 className="border-white/30 text-white hover:bg-white/10"
               >
-                {isPlaying ? (
+                {isLoadingVoice ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : isPlaying ? (
                   <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
                 ) : (
                   <Headphones className="w-4 h-4 mr-2" />
                 )}
-                {isPlaying ? 'Playing...' : 'Voice Guide'}
+                {isLoadingVoice ? 'Loading...' : isPlaying ? 'Playing...' : 'Voice Guide'}
               </Button>
               <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
                 {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}

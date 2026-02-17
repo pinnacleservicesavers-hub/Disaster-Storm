@@ -71,12 +71,11 @@ export default function ContentForge() {
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [isLoadingVoice, setIsLoadingVoice] = useState(false);
 
   const contentForgeGuideScript = "Welcome to ContentForge, your AI-powered marketing engine. This is where you create stunning ads for any platform — Facebook, Instagram, TikTok, LinkedIn, Google Ads, and more. Just choose whether you want a Photo Ad, Video Ad, or Full Campaign, describe what you need, and AI generates everything instantly — professional copy, headlines, hashtags, and custom images. You have four tabs to work with: AI Studio where you create ads, My Ads gallery to see everything you've made, Templates for quick-start ideas, and Content for managing your media. You can even upload your own job site photos and videos, and AI will design ads around your real work. Once your ad is ready, publish it directly to your connected accounts with one click. Just describe what you want and let AI handle the rest. I'm Rachel, and I'm here to help!";
 
   const stopAudio = () => {
-    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -84,44 +83,41 @@ export default function ContentForge() {
     setIsPlaying(false);
   };
 
-  const speakText = (text: string) => {
+  const speakWithTTS = async (text: string) => {
     if (!voiceEnabledRef.current) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(v => /samantha|karen|victoria|zira|female|fiona|moira|tessa/i.test(v.name))
-      || voices.find(v => /google.*us.*female|google.*uk.*female/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (femaleVoice) utterance.voice = femaleVoice;
-    utterance.rate = 1.0;
-    utterance.pitch = 1.1;
-    utterance.volume = 1.0;
-    utterance.onstart = () => setIsPlaying(true);
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
-    speechRef.current = utterance;
-    setIsPlaying(true);
-    window.speechSynthesis.speak(utterance);
+    stopAudio();
+    setIsLoadingVoice(true);
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const data = await res.json();
+      if (data.audioBase64 && audioRef.current) {
+        const audioSrc = `data:audio/${data.format || 'mp3'};base64,${data.audioBase64}`;
+        audioRef.current.src = audioSrc;
+        audioRef.current.onended = () => setIsPlaying(false);
+        setIsPlaying(true);
+        setIsLoadingVoice(false);
+        await audioRef.current.play().catch(() => setIsPlaying(false));
+      } else {
+        setIsLoadingVoice(false);
+      }
+    } catch (err) {
+      console.error('Voice guide error:', err);
+      setIsLoadingVoice(false);
+      setIsPlaying(false);
+    }
   };
 
-  const [voicesLoaded, setVoicesLoaded] = useState(false);
   useEffect(() => {
-    const loadVoices = () => {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length > 0) setVoicesLoaded(true);
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
-  }, []);
-
-  useEffect(() => {
-    if (!hasPlayedWelcome.current && voiceEnabledRef.current && voicesLoaded) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
       hasPlayedWelcome.current = true;
-      setTimeout(() => speakText(contentForgeGuideScript), 500);
+      setTimeout(() => speakWithTTS(contentForgeGuideScript), 800);
     }
-  }, [voicesLoaded]);
+  }, []);
 
   const toggleVoice = () => {
     const newEnabled = !isVoiceEnabled;
@@ -134,7 +130,7 @@ export default function ContentForge() {
 
   const playRachelVoice = (message: string) => {
     if (voiceEnabledRef.current) {
-      speakText(message);
+      speakWithTTS(message);
     }
   };
 
@@ -344,16 +340,19 @@ export default function ContentForge() {
                 onClick={() => {
                   setIsVoiceEnabled(true);
                   voiceEnabledRef.current = true;
-                  speakText(contentForgeGuideScript);
+                  speakWithTTS(contentForgeGuideScript);
                 }}
+                disabled={isLoadingVoice}
                 className="border-white/30 text-white hover:bg-white/10"
               >
-                {isPlaying ? (
+                {isLoadingVoice ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : isPlaying ? (
                   <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
                 ) : (
                   <Mic className="w-4 h-4 mr-2" />
                 )}
-                {isPlaying ? 'Playing...' : 'Voice Guide'}
+                {isLoadingVoice ? 'Loading...' : isPlaying ? 'Playing...' : 'Voice Guide'}
               </Button>
               <Button
                 variant="ghost"
@@ -403,36 +402,46 @@ export default function ContentForge() {
                   <CardContent className="space-y-4">
                     <div>
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">What type of ad do you want?</label>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-4 gap-3">
                         <button
                           type="button"
                           onClick={() => setAdType('image')}
-                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'image' ? 'border-pink-500 bg-pink-50 dark:bg-pink-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-pink-300 dark:hover:border-pink-700'}`}
+                          className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${adType === 'image' ? 'border-pink-500 bg-pink-50 dark:bg-pink-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-pink-300 dark:hover:border-pink-700'}`}
                         >
-                          {adType === 'image' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-                          <Camera className="w-8 h-8 text-pink-600" />
-                          <span className="font-semibold text-sm">Photo Ad</span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">AI image + copy</span>
+                          {adType === 'image' && <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-pink-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></div>}
+                          <Camera className="w-7 h-7 text-pink-600" />
+                          <span className="font-semibold text-xs">Photo Ad</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center">AI image + copy</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setAdType('video_concept')}
-                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'video_concept' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700'}`}
+                          className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${adType === 'video_concept' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700'}`}
                         >
-                          {adType === 'video_concept' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-                          <Film className="w-8 h-8 text-purple-600" />
-                          <span className="font-semibold text-sm">Video Ad</span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Storyboard + script</span>
+                          {adType === 'video_concept' && <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></div>}
+                          <Film className="w-7 h-7 text-purple-600" />
+                          <span className="font-semibold text-xs">Video Ad</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center">Storyboard + script</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdType('animated')}
+                          className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${adType === 'animated' ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-700'}`}
+                        >
+                          {adType === 'animated' && <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></div>}
+                          <Sparkles className="w-7 h-7 text-teal-600" />
+                          <span className="font-semibold text-xs">Animated</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center">Cartoon + motion</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setAdType('full_campaign')}
-                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'full_campaign' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700'}`}
+                          className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${adType === 'full_campaign' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700'}`}
                         >
-                          {adType === 'full_campaign' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-                          <Megaphone className="w-8 h-8 text-amber-600" />
-                          <span className="font-semibold text-sm">Full Campaign</span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Image + video + copy</span>
+                          {adType === 'full_campaign' && <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></div>}
+                          <Megaphone className="w-7 h-7 text-amber-600" />
+                          <span className="font-semibold text-xs">Full Campaign</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center">Image + video + copy</span>
                         </button>
                       </div>
                     </div>
@@ -446,6 +455,8 @@ export default function ContentForge() {
                           ? "Describe your video ad... e.g., 'Create a 30-second video showing Strategic Land Management removing a fallen tree from a house after a hurricane, crew in PPE, dramatic before and after'" 
                           : adType === 'full_campaign'
                           ? "Describe your campaign... e.g., 'Full marketing campaign for our roofing company — storm season is coming, show urgency and professionalism'"
+                          : adType === 'animated'
+                          ? "Describe your animated ad... e.g., 'Fun animated cartoon of a superhero roofer fixing a house during a storm, bright colors, action-packed with a funny ending'"
                           : "Describe your ad... e.g., 'Professional photo ad showing our crew removing storm damage debris, company name Strategic Land Management, bold and urgent'"}
                         className="min-h-[120px] resize-none text-base"
                       />
@@ -487,6 +498,8 @@ export default function ContentForge() {
                             <SelectItem value="minimalist">Clean & Minimalist</SelectItem>
                             <SelectItem value="cinematic">Cinematic & Dramatic</SelectItem>
                             <SelectItem value="edgy">Edgy & Disruptive</SelectItem>
+                            <SelectItem value="comical">Comical & Funny</SelectItem>
+                            <SelectItem value="animated">Animated & Cartoon</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

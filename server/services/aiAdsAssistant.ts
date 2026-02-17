@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 export interface FreeformAdRequest {
   prompt: string;
-  adType?: 'image' | 'video_concept' | 'full_campaign';
+  adType?: 'image' | 'video_concept' | 'full_campaign' | 'animated';
   style?: string;
   platform?: string;
   includeImage?: boolean;
@@ -362,6 +362,7 @@ Return ONLY the headlines, numbered 1-${count}.`;
   async createFreeformAd(request: FreeformAdRequest): Promise<FreeformAdResult> {
     const isVideo = request.adType === 'video_concept';
     const isCampaign = request.adType === 'full_campaign';
+    const isAnimated = request.adType === 'animated';
     
     const systemPrompt = `You are an elite creative director and advertising genius. You create ads that go viral, win awards, and drive massive results. You have no creative limits — you push boundaries and create content that captivates.
 
@@ -390,6 +391,7 @@ ${request.style ? `Style preference: ${request.style}` : ''}
 ${request.platform ? `Target platform: ${request.platform}` : ''}
 ${isVideo ? 'This is a VIDEO AD concept.' : ''}
 ${isCampaign ? 'This is a FULL CAMPAIGN with multiple pieces.' : ''}
+${isAnimated ? 'This is an ANIMATED/CARTOON ad. Create it with an animated, illustrated, or cartoon style. Include animation direction notes.' : ''}
 
 Generate a complete ad package as JSON with these fields:
 {
@@ -433,7 +435,29 @@ Make it exceptional. Make it unforgettable.`;
 
     if (request.includeImage !== false) {
       try {
-        const imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC advertising photo for: ${request.prompt}. 
+        const isComicalStyle = request.style === 'comical';
+        const isAnimatedStyle = request.style === 'animated' || isAnimated;
+        
+        let imagePrompt: string;
+        if (isAnimatedStyle) {
+          imagePrompt = `Create a vibrant, colorful ANIMATED CARTOON illustration for an ad about: ${request.prompt}. 
+Style: Pixar/Disney-quality 3D animated look, bright saturated colors, fun character designs, exaggerated proportions.
+- Characters should be appealing cartoon versions with expressive faces
+- Use bold colors, clean lines, and dynamic poses
+- Make it look like a frame from a premium animated commercial
+- Fun, energetic, family-friendly cartoon aesthetic
+CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+        } else if (isComicalStyle) {
+          imagePrompt = `Create a FUNNY, HUMOROUS advertising image for: ${request.prompt}. 
+Style: Comedic, witty, makes people laugh out loud.
+- Use visual humor, funny situations, exaggerated expressions, or absurd scenarios
+- Think of the funniest Super Bowl commercial ever — that energy
+- Keep it clean humor but genuinely funny, not corny
+- Bright, eye-catching colors that make people stop scrolling
+- Can be slightly cartoonish or illustrated if it makes it funnier
+CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+        } else {
+          imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC advertising photo for: ${request.prompt}. 
 Style: ${request.style || 'Professional documentary-style photography'}.
 CRITICAL PHOTOGRAPHY RULES:
 - This must look like a REAL PHOTOGRAPH taken by a professional photographer on a job site or location
@@ -445,7 +469,8 @@ CRITICAL PHOTOGRAPHY RULES:
 - NO robotic, cyborg, or otherworldly imagery
 - Think National Geographic photographer documenting real contractor work
 - Professional composition with depth of field, natural colors, realistic textures
-CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind.`;
+CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+        }
         
         const imgResponse = await this.openai.images.generate({
           model: 'dall-e-3',

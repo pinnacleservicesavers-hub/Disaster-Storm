@@ -16396,50 +16396,83 @@ What specific area or type of incident would you like me to focus on? I can prov
         });
       }
       
-      // Use ElevenLabs with Rachel voice (voice ID: 21m00Tcm4TlvDq8ikWAM)
-      // Rachel is our natural female AI assistant voice
-      const voiceId = '21m00Tcm4TlvDq8ikWAM';
-      
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'xi-api-key': elevenLabsApiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text: truncatedText,
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: 0.71,
-            similarity_boost: 0.76,
-            style: 0.32,
-            use_speaker_boost: true
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('ElevenLabs TTS error:', errorText);
-        return res.status(500).json({ 
-          error: 'Failed to generate speech',
-          fallback: true 
+      // Try ElevenLabs first, fall back to OpenAI if it fails
+      let elevenLabsSuccess = false;
+      try {
+        const voiceId = '21m00Tcm4TlvDq8ikWAM';
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'xi-api-key': elevenLabsApiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: truncatedText,
+            model_id: 'eleven_turbo_v2_5',
+            voice_settings: {
+              stability: 0.71,
+              similarity_boost: 0.76,
+              style: 0.32,
+              use_speaker_boost: true
+            }
+          })
         });
+
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = Buffer.from(arrayBuffer);
+          const audioBase64 = audioBuffer.toString('base64');
+          console.log('🎤 ElevenLabs TTS generated successfully with Rachel voice');
+          elevenLabsSuccess = true;
+          return res.json({ 
+            audioBase64,
+            format: 'mp3',
+            voice: 'Rachel',
+            provider: 'elevenlabs'
+          });
+        } else {
+          console.log('ElevenLabs TTS failed, falling back to OpenAI TTS');
+        }
+      } catch (elErr) {
+        console.log('ElevenLabs TTS error, falling back to OpenAI TTS');
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = Buffer.from(arrayBuffer);
-      
-      // Return audio as base64 for easy frontend consumption
-      const audioBase64 = audioBuffer.toString('base64');
-      console.log('🎤 ElevenLabs TTS generated successfully with Rachel voice');
-      res.json({ 
-        audioBase64,
-        format: 'mp3',
-        voice: 'Rachel',
-        provider: 'elevenlabs'
-      });
+      if (!elevenLabsSuccess) {
+        const openAiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+        if (!openAiKey) {
+          return res.status(503).json({ error: 'Voice service unavailable', fallback: true });
+        }
+        const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1';
+        const openAiResponse = await fetch(`${baseUrl}/audio/speech`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'tts-1-hd',
+            voice: 'nova',
+            input: truncatedText,
+            response_format: 'mp3',
+            speed: 1.0
+          })
+        });
+
+        if (!openAiResponse.ok) {
+          return res.status(500).json({ error: 'Failed to generate speech', fallback: true });
+        }
+
+        const arrayBuffer = await openAiResponse.arrayBuffer();
+        const audioBuffer = Buffer.from(arrayBuffer);
+        console.log('🎤 OpenAI TTS generated successfully with Nova voice');
+        return res.json({ 
+          audioBase64: audioBuffer.toString('base64'),
+          format: 'mp3',
+          voice: 'nova',
+          provider: 'openai-fallback'
+        });
+      }
       
     } catch (error) {
       console.error('TTS error:', error);
