@@ -6,7 +6,7 @@ import {
   Send, Video, Film, Copy, RefreshCw, Wand2, Loader2, Check,
   MessageSquare, Target, Hash, Play, X, Maximize2, ChevronDown,
   Megaphone, PenTool, Camera, Layers, ArrowRight, Star, Upload,
-  VideoIcon, Aperture, Trash2
+  VideoIcon, Aperture, Trash2, Mic
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -100,10 +100,20 @@ export default function ContentForge() {
     },
   });
 
+  const contentForgeGuidePrompt = `You're Rachel, the voice guide for ContentForge — the AI-powered marketing engine inside WorkHub. Give a warm, professional walkthrough of what this module does. Cover these points naturally in about 4-5 sentences:
+
+1. ContentForge is your AI creative studio — describe ANY ad you want and AI creates it instantly with professional copy, headlines, hashtags, and even custom images.
+2. You can create ads for Facebook, Instagram, TikTok, LinkedIn, Google Ads — every major platform.
+3. There are 4 tabs: AI Studio where you create ads, My Ads gallery to see everything you've made, Templates for quick-start ideas, and Content for managing your media.
+4. Once your ad is created, you can publish it directly to your connected social media accounts with one click.
+5. You can even upload your own photos and videos from job sites, and AI will design ads around your real work.
+
+End with something encouraging like "Just describe what you want and let AI handle the rest. I'm here to help!"`;
+
   useEffect(() => {
-    if (!hasPlayedWelcome.current) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to the AI Ad Studio inside ContentForge. You're Rachel, and this tool lets them describe any ad they want and AI creates it instantly — images, copy, video concepts, everything. Keep it super short and exciting.");
+      voiceMutation.mutate(contentForgeGuidePrompt);
     }
   }, []);
 
@@ -317,18 +327,38 @@ export default function ContentForge() {
             <div>
               <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
                 <Wand2 className="w-10 h-10" />
-                ContentForge AI Ad Studio
+                ContentForge
               </h1>
-              <p className="text-pink-100 text-lg">Describe any ad. AI creates it instantly — images, copy, videos, campaigns.</p>
+              <p className="text-pink-100 text-lg">AI Marketing Engine — Describe any ad and AI creates it instantly</p>
             </div>
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={toggleVoice}
-              className="text-white hover:bg-white/10"
-            >
-              {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsVoiceEnabled(true);
+                  voiceEnabledRef.current = true;
+                  voiceMutation.mutate(contentForgeGuidePrompt);
+                }}
+                disabled={voiceMutation.isPending}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                {voiceMutation.isPending ? (
+                  <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                ) : (
+                  <Mic className="w-4 h-4 mr-2" />
+                )}
+                {voiceMutation.isPending ? 'Loading Guide...' : 'Voice Guide'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={toggleVoice}
+                className="text-white hover:bg-white/10"
+              >
+                {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
