@@ -47,6 +47,7 @@ const GROUP_INFO: Record<string, { label: string; icon: any }> = {
 export default function WorkHubMarketplace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showAgents, setShowAgents] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -162,10 +163,20 @@ End with something encouraging like "Click any module to get started. I'm here i
               <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
                 {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
               </Button>
-              <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1.5">
-                <Activity className="w-3.5 h-3.5 mr-1.5" />
-                17 AI Agents Active
-              </Badge>
+              <div 
+                className="cursor-pointer"
+                onClick={() => {
+                  setShowAgents(true);
+                  setTimeout(() => {
+                    document.getElementById('ai-agents-tab')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+              >
+                <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1.5 hover:bg-green-500/30 transition-colors">
+                  <Activity className="w-3.5 h-3.5 mr-1.5" />
+                  17 AI Agents Active
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -258,9 +269,68 @@ End with something encouraging like "Click any module to get started. I'm here i
           </div>
         )}
 
-        <AutonomousAgentDashboard />
+        <div className="mt-2 mb-6" id="ai-agents-tab">
+          <button
+            data-testid="ai-agents-tab"
+            onClick={() => {
+              const newState = !showAgents;
+              setShowAgents(newState);
+              if (newState && isVoiceEnabled) {
+                voiceMutation.mutate("You're Rachel. The user just opened the AI Agents panel. Give a brief, impressive 2-sentence overview of the 17 autonomous AI agents running 24/7 across all WorkHub modules. Mention they handle tasks like lead scoring, bid analysis, market pricing, reputation monitoring, and scheduling — all without human intervention. Sound confident and professional.");
+              }
+            }}
+            className="w-full group"
+          >
+            <Card className="border-slate-700/50 bg-gradient-to-r from-cyan-900/30 via-blue-900/30 to-indigo-900/30 hover:from-cyan-900/50 hover:via-blue-900/50 hover:to-indigo-900/50 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10">
+              <CardContent className="py-4 px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center shadow-lg">
+                      <Bot className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        AI Agents
+                        <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
+                          <Activity className="w-3 h-3 mr-1" />
+                          17 Active
+                        </Badge>
+                      </h3>
+                      <p className="text-sm text-slate-400">24/7 autonomous operations across all modules</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs text-green-400 font-medium">System Active</span>
+                    </div>
+                    <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showAgents ? 'rotate-90' : ''}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </button>
 
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+          {showAgents && (
+            <div className="mt-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="close-agents-panel"
+                  onClick={() => setShowAgents(false)}
+                  className="text-slate-400 hover:text-white hover:bg-slate-700/50"
+                >
+                  <ChevronRight className="w-4 h-4 mr-1 rotate-90" />
+                  Collapse
+                </Button>
+              </div>
+              <AutonomousAgentDashboard />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Link to="/workhub/pricing">
             <Card className="bg-slate-800/50 border-slate-700/50 hover:border-purple-500/30 transition-all hover:-translate-y-0.5 cursor-pointer">
               <CardContent className="pt-5 pb-4 text-center">
