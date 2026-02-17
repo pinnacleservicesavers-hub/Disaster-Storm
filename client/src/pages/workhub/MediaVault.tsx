@@ -99,10 +99,22 @@ export default function MediaVault() {
     },
   });
 
+  const mediaVaultGuidePrompt = `You're Rachel, the voice guide for MediaVault Creative Studio — the all-in-one media powerhouse inside WorkHub. Give a warm, professional walkthrough of everything this module can do. Cover these points naturally in about 6-7 sentences:
+
+1. MediaVault is your complete creative studio — store, organize, and protect all your job site photos and videos in one secure place.
+2. Upload Center lets you drag and drop photos and videos, or even capture them directly with your phone camera right here.
+3. AI Video tab lets you describe any video concept and AI creates a full storyboard with scenes, voiceover scripts, music suggestions, and visual direction.
+4. Flyers and Ads tab generates professional promotional materials — just describe what you want and AI creates the design with images and copy.
+5. Brochures tab creates full multi-page brochure campaigns with cover panels, service listings, testimonials, and contact info.
+6. Sound Studio is for radio ads, voiceovers, and audio content — describe what you need and AI writes the scripts and sound design.
+7. Campaigns tab ties everything together for coordinated marketing across platforms, and the Created gallery stores everything you've made.
+
+End with something encouraging like "This is your creative team in a box — just describe what you need and I'll build it for you!"`;
+
   useEffect(() => {
-    if (!hasPlayedWelcome.current) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to MediaVault Creative Studio. You're Rachel. This is where they create videos, flyers, ads, brochures, radio ads, voiceovers, and sound design using AI for ANY industry — just describe it. Keep it super short and exciting.");
+      voiceMutation.mutate(mediaVaultGuidePrompt);
     }
   }, []);
 
@@ -375,11 +387,31 @@ export default function MediaVault() {
                 <Shield className="w-10 h-10" />
                 MediaVault Creative Studio
               </h1>
-              <p className="text-slate-300 text-lg">Store your work, then turn it into videos, ads, flyers, brochures & audio with AI — any industry, zero limits</p>
+              <p className="text-slate-300 text-lg">Store your work, then turn it into videos, ads, flyers, brochures & audio with AI</p>
             </div>
-            <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
-              {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsVoiceEnabled(true);
+                  voiceEnabledRef.current = true;
+                  voiceMutation.mutate(mediaVaultGuidePrompt);
+                }}
+                disabled={voiceMutation.isPending}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                {voiceMutation.isPending ? (
+                  <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                ) : (
+                  <Headphones className="w-4 h-4 mr-2" />
+                )}
+                {voiceMutation.isPending ? 'Loading Guide...' : 'Voice Guide'}
+              </Button>
+              <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
+                {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
