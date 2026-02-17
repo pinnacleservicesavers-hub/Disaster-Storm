@@ -153,12 +153,18 @@ export default function ContentForge() {
           if (!exists) return [data.result, ...prev];
           return prev;
         });
-        playRachelVoice("Your ad is ready! I created compelling copy, headlines, hashtags, and a custom image. You can save it, download it, share it, or copy everything with one click.");
-        toast({ title: "Ad Created!", description: "Your AI-generated ad is ready. Save it, download it, or share it!" });
+        const hasVideo = data.result.videoConcept || data.result.videoScript;
+        const message = hasVideo
+          ? "Your video ad concept is ready! I created a full storyboard with scenes, voiceover scripts, music direction, plus ad copy, headlines, and a custom image."
+          : "Your ad is ready! I created compelling copy, headlines, hashtags, and a custom image. You can save it, download it, share it, or copy everything with one click.";
+        playRachelVoice(message);
+        toast({ title: "Ad Created!", description: hasVideo ? "Video concept with storyboard is ready!" : "Your AI-generated ad is ready. Save it, download it, or share it!" });
+      } else {
+        toast({ title: "Generation issue", description: "The AI had trouble creating your ad. Please try again.", variant: "destructive" });
       }
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to create ad", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to create ad. Please try again.", variant: "destructive" });
     }
   });
 

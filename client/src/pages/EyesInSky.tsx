@@ -11,6 +11,7 @@ import { StateCitySelector, useStateCitySelector } from '@/components/StateCityS
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 const SatelliteIntelligence = lazy(() => import('@/components/satellite/SatelliteIntelligence'));
 
@@ -538,6 +539,8 @@ export default function EyesInSky() {
       </Card>
       </>}
       <ModuleAIAssistant moduleName="Eyes In The Sky" />
+      
+      <ModuleVoiceGuide moduleName="eyes-in-sky" />
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 
 type ImpactResp = { impactScore: number };
 
@@ -463,6 +464,8 @@ export default function Watchlist() {
         moduleName="Watchlist"
         moduleContext="Location-based impact monitoring and alerting system. Rachel can help you add locations to watch, configure impact score thresholds, set up webhook alerts, understand storm risk scoring, and monitor multiple areas for contractor deployment opportunities."
       />
+      
+      <ModuleVoiceGuide moduleName="watchlist" />
     </div>
   );
 }

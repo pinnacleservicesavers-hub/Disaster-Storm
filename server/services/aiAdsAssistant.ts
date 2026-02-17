@@ -422,16 +422,42 @@ Make it exceptional. Make it unforgettable.`;
     const response = await this.openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: systemPrompt + '\n\nIMPORTANT: You MUST respond with ONLY valid JSON. No markdown, no code fences, no explanation — just the raw JSON object. Ensure all strings are properly escaped and no trailing commas exist.' },
         { role: 'user', content: copyPrompt }
       ],
-      temperature: 1.0,
-      max_tokens: 2000,
+      temperature: 0.9,
+      max_tokens: 3500,
     });
 
     const freeContent = response.choices[0].message.content || '{}';
-    const freeJson = freeContent.match(/\{[\s\S]*\}/);
-    const result = JSON.parse(freeJson ? freeJson[0] : '{}');
+    let result: any;
+    try {
+      result = JSON.parse(freeContent);
+    } catch {
+      const freeJson = freeContent.match(/\{[\s\S]*\}/);
+      let cleaned = freeJson ? freeJson[0] : '{}';
+      cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+      cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+        if (ch === '\n') return '\\n';
+        if (ch === '\r') return '\\r';
+        if (ch === '\t') return '\\t';
+        return '';
+      });
+      try {
+        result = JSON.parse(cleaned);
+      } catch (e2) {
+        console.error('Failed to parse AI ad response after cleaning:', e2);
+        console.error('Raw response:', freeContent.substring(0, 500));
+        result = {
+          adCopy: "Ad generation completed but formatting failed. Please try again.",
+          headlines: ["Try Again"],
+          callToAction: "Create Ad",
+          hashtags: ["#ad"],
+          platforms: ["All"],
+          targetAudience: "General audience"
+        };
+      }
+    }
 
     if (request.includeImage !== false) {
       try {

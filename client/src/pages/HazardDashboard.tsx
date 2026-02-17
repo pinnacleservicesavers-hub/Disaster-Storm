@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, MapPin, Home, FileText, Activity } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -452,6 +453,8 @@ export default function HazardDashboard() {
           </div>
         </div>
       </div>
+      
+      <ModuleVoiceGuide moduleName="hazard-dashboard" />
     </div>
   );
 }
