@@ -287,29 +287,32 @@ export default function VoiceGuide({
         });
       }, intervalTime);
       
-      const response = await fetch('/api/closebot/chat', {
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          history: [],
-          context: { leadName: "user", companyName: "the company", trade: "general" },
-          enableVoice: true
-        })
+        body: JSON.stringify({ text: text.trim() })
       });
       
       const data = await response.json();
       
-      if (data.audioUrl) {
+      if (data.audioBase64) {
+        const format = data.format || 'mp3';
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+          { type: `audio/${format}` }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
         if (audioRef.current) {
           audioRef.current.pause();
         }
-        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current = new Audio(audioUrl);
         
         audioRef.current.onended = () => {
           setIsPlaying(false);
           setProgress(100);
           isGeneratingRef.current = false;
+          URL.revokeObjectURL(audioUrl);
           if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
           }
@@ -320,6 +323,7 @@ export default function VoiceGuide({
           setIsPlaying(false);
           setProgress(0);
           isGeneratingRef.current = false;
+          URL.revokeObjectURL(audioUrl);
           if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
           }

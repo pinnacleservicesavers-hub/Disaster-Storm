@@ -16443,8 +16443,7 @@ What specific area or type of incident would you like me to focus on? I can prov
         if (!openAiKey) {
           return res.status(503).json({ error: 'Voice service unavailable', fallback: true });
         }
-        const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1';
-        const openAiResponse = await fetch(`${baseUrl}/audio/speech`, {
+        const openAiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openAiKey}`,

@@ -413,15 +413,10 @@ Keep it concise and actionable.`;
       const voiceContent = `Welcome to Traffic Cam Watcher! This real-time monitoring system provides live traffic camera feeds and evacuation route intelligence. You can view traffic cameras from multiple states and cities, monitor road conditions during storm events, and track emergency evacuation routes. The main dashboard displays online cameras with status indicators, traffic flow levels from light to blocked, and weather conditions at each location. Use the state and city filters to focus on specific regions. Switch between camera view and evacuation routes view using the tabs. Each camera shows live status, traffic flow, and any active alerts. For evacuation routes, you'll see real-time capacity usage, estimated travel times, and alternative route options. All data refreshes automatically to keep you informed during critical situations.`;
       
       try {
-        // Call Rachel voice API (ElevenLabs) - energetic female voice
-        const response = await fetch('/api/voice-ai/generate', {
+        const response = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            text: voiceContent,
-            provider: 'elevenlabs',
-            voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
-          }),
+          body: JSON.stringify({ text: voiceContent.trim() }),
           signal: abortController.signal,
         });
 

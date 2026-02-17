@@ -330,27 +330,30 @@ export default function PortalVoiceGuide({
       }
       setIsPlaying(true);
       
-      const response = await fetch('/api/closebot/chat', {
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          history: [],
-          context: { leadName: "user", companyName: "the company", trade: "general" },
-          enableVoice: true
-        })
+        body: JSON.stringify({ text: text.trim() })
       });
       
       const data = await response.json();
       
-      if (data.audioUrl) {
-        audioRef.current = new Audio(data.audioUrl);
+      if (data.audioBase64) {
+        const format = data.format || 'mp3';
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+          { type: `audio/${format}` }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioRef.current = new Audio(audioUrl);
         audioRef.current.onended = () => {
           setIsPlaying(false);
+          URL.revokeObjectURL(audioUrl);
           onComplete?.();
         };
         audioRef.current.onerror = () => {
           setIsPlaying(false);
+          URL.revokeObjectURL(audioUrl);
           onComplete?.();
         };
         await audioRef.current.play();

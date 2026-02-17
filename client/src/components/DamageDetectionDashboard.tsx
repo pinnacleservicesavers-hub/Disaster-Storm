@@ -122,23 +122,30 @@ export function DamageDetectionDashboard() {
           audioRef.current = null;
         }
         
-        const response = await fetch('/api/closebot/chat', {
+        const response = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: voiceContent,
-            history: [],
-            context: { leadName: "user", companyName: "the company", trade: "general" },
-            enableVoice: true
-          })
+          body: JSON.stringify({ text: voiceContent.trim() })
         });
         
         const data = await response.json();
         
-        if (data.audioUrl) {
-          audioRef.current = new Audio(data.audioUrl);
-          audioRef.current.onended = () => setIsVoiceGuideActive(false);
-          audioRef.current.onerror = () => setIsVoiceGuideActive(false);
+        if (data.audioBase64) {
+          const format = data.format || 'mp3';
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+            { type: `audio/${format}` }
+          );
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioRef.current = new Audio(audioUrl);
+          audioRef.current.onended = () => {
+            setIsVoiceGuideActive(false);
+            URL.revokeObjectURL(audioUrl);
+          };
+          audioRef.current.onerror = () => {
+            setIsVoiceGuideActive(false);
+            URL.revokeObjectURL(audioUrl);
+          };
           await audioRef.current.play();
         } else {
           setIsVoiceGuideActive(false);

@@ -145,17 +145,10 @@ export default function StormShare() {
       const voiceContent = `Welcome to StormShare Community Platform! This collaborative network connects storm victims, contractors, and businesses for mutual assistance during weather emergencies. The community feed displays help requests, resource sharing, and recovery updates from your local area. You can post assistance needs, offer services, or share resources with verified community members. The help request system categorizes needs by urgency - normal, urgent, high priority, or emergency - with contact information and location details. Group messaging enables neighborhood coordination and resource sharing. Contractor matching connects verified professionals with people needing services. The platform includes reputation systems, insurance verification, and secure payment processing. Local business directories provide essential services during recovery. All interactions are monitored for safety and authenticity.`;
       
       try {
-        // Call server API to generate Rachel's energetic female voice (ElevenLabs)
-        const response = await fetch('/api/voice-ai/generate', {
+        const response = await fetch('/api/tts', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            text: voiceContent,
-            voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - energetic female voice
-            provider: 'elevenlabs'
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: voiceContent.trim() })
         });
 
         if (!response.ok) {
@@ -165,13 +158,19 @@ export default function StormShare() {
         const data = await response.json();
         
         if (data.audioBase64) {
-          // Create and play audio with proper cleanup
-          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          const format = data.format || 'mp3';
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+            { type: `audio/${format}` }
+          );
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
           audioRef.current = audio;
           
           audio.onended = () => {
             setIsVoiceGuideActive(false);
             setIsPlayingVoice(false);
+            URL.revokeObjectURL(audioUrl);
             audioRef.current = null;
           };
           
@@ -179,6 +178,7 @@ export default function StormShare() {
             console.error('Audio playback error');
             setIsVoiceGuideActive(false);
             setIsPlayingVoice(false);
+            URL.revokeObjectURL(audioUrl);
             audioRef.current = null;
           };
           

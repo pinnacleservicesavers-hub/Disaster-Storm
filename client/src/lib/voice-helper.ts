@@ -18,15 +18,10 @@ export async function speakWithAI(
     options?.onStart?.();
     isPlayingState = true;
 
-    const response = await fetch('/api/closebot/chat', {
+    const response = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: `Say the following naturally in 1-2 short sentences as Rachel, keeping it warm and conversational: ${text}`,
-        history: [],
-        context: { leadName: "user", companyName: "the company", trade: "general" },
-        enableVoice: true,
-      })
+      body: JSON.stringify({ text: text.trim() })
     });
 
     if (!response.ok) {
@@ -35,17 +30,25 @@ export async function speakWithAI(
 
     const data = await response.json();
 
-    if (data.audioUrl) {
-      currentAudio = new Audio(data.audioUrl);
+    if (data.audioBase64) {
+      const format = data.format || 'mp3';
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+        { type: `audio/${format}` }
+      );
+      const audioUrl = URL.createObjectURL(audioBlob);
+      currentAudio = new Audio(audioUrl);
 
       currentAudio.onended = () => {
         isPlayingState = false;
+        URL.revokeObjectURL(audioUrl);
         currentAudio = null;
         options?.onEnd?.();
       };
 
       currentAudio.onerror = () => {
         isPlayingState = false;
+        URL.revokeObjectURL(audioUrl);
         currentAudio = null;
         options?.onError?.(new Error('Audio playback failed'));
         options?.onEnd?.();
@@ -70,7 +73,6 @@ export function stopSpeaking(): void {
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
-  window.speechSynthesis?.cancel();
   isPlayingState = false;
 }
 

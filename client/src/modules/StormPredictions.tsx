@@ -285,15 +285,10 @@ export default function StormPredictions() {
     try {
       const narrationText = type === 'transparency' ? generateTransparencyNarration() : generateEducationNarration();
       
-      // Use Rachel's natural female voice (ElevenLabs)
-      const response = await fetch('/api/voice-ai/generate', {
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: narrationText,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - natural female voice
-        })
+        body: JSON.stringify({ text: narrationText.trim() })
       });
 
       if (!response.ok) {
