@@ -397,29 +397,56 @@ End with something encouraging like "Just describe what you want and let AI hand
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">What type of ad do you want?</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAdType('image')}
+                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'image' ? 'border-pink-500 bg-pink-50 dark:bg-pink-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-pink-300 dark:hover:border-pink-700'}`}
+                        >
+                          {adType === 'image' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
+                          <Camera className="w-8 h-8 text-pink-600" />
+                          <span className="font-semibold text-sm">Photo Ad</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">AI image + copy</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdType('video_concept')}
+                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'video_concept' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700'}`}
+                        >
+                          {adType === 'video_concept' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
+                          <Film className="w-8 h-8 text-purple-600" />
+                          <span className="font-semibold text-sm">Video Ad</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Storyboard + script</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdType('full_campaign')}
+                          className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${adType === 'full_campaign' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 shadow-md' : 'border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700'}`}
+                        >
+                          {adType === 'full_campaign' && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
+                          <Megaphone className="w-8 h-8 text-amber-600" />
+                          <span className="font-semibold text-sm">Full Campaign</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Image + video + copy</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Describe your ad</label>
                       <Textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Tell me exactly what you want... e.g., 'Create a bold Facebook ad for my roofing company showing storm damage repair, make it urgent and professional with a before/after feel'"
+                        placeholder={adType === 'video_concept' 
+                          ? "Describe your video ad... e.g., 'Create a 30-second video showing Strategic Land Management removing a fallen tree from a house after a hurricane, crew in PPE, dramatic before and after'" 
+                          : adType === 'full_campaign'
+                          ? "Describe your campaign... e.g., 'Full marketing campaign for our roofing company — storm season is coming, show urgency and professionalism'"
+                          : "Describe your ad... e.g., 'Professional photo ad showing our crew removing storm damage debris, company name Strategic Land Management, bold and urgent'"}
                         className="min-h-[120px] resize-none text-base"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Ad Type</label>
-                        <Select value={adType} onValueChange={setAdType}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="image">Image Ad</SelectItem>
-                            <SelectItem value="video_concept">Video Concept</SelectItem>
-                            <SelectItem value="full_campaign">Full Campaign</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                       <div>
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Platform</label>
                         <Select value={platform} onValueChange={setPlatform}>
@@ -438,27 +465,26 @@ End with something encouraging like "Just describe what you want and let AI hand
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Style (optional)</label>
-                      <Select value={style} onValueChange={setStyle}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Auto-detect best style" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">Auto-detect</SelectItem>
-                          <SelectItem value="bold">Bold & Attention-Grabbing</SelectItem>
-                          <SelectItem value="professional">Professional & Corporate</SelectItem>
-                          <SelectItem value="emotional">Emotional & Heartfelt</SelectItem>
-                          <SelectItem value="urgent">Urgent & Time-Sensitive</SelectItem>
-                          <SelectItem value="luxury">Luxury & Premium</SelectItem>
-                          <SelectItem value="fun">Fun & Playful</SelectItem>
-                          <SelectItem value="minimalist">Clean & Minimalist</SelectItem>
-                          <SelectItem value="cinematic">Cinematic & Dramatic</SelectItem>
-                          <SelectItem value="edgy">Edgy & Disruptive</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Style (optional)</label>
+                        <Select value={style} onValueChange={setStyle}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Auto-detect best style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto-detect</SelectItem>
+                            <SelectItem value="bold">Bold & Attention-Grabbing</SelectItem>
+                            <SelectItem value="professional">Professional & Corporate</SelectItem>
+                            <SelectItem value="emotional">Emotional & Heartfelt</SelectItem>
+                            <SelectItem value="urgent">Urgent & Time-Sensitive</SelectItem>
+                            <SelectItem value="luxury">Luxury & Premium</SelectItem>
+                            <SelectItem value="fun">Fun & Playful</SelectItem>
+                            <SelectItem value="minimalist">Clean & Minimalist</SelectItem>
+                            <SelectItem value="cinematic">Cinematic & Dramatic</SelectItem>
+                            <SelectItem value="edgy">Edgy & Disruptive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div>

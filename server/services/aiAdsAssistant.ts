@@ -433,10 +433,19 @@ Make it exceptional. Make it unforgettable.`;
 
     if (request.includeImage !== false) {
       try {
-        const imagePrompt = `Create a stunning, professional advertising visual for: ${request.prompt}. 
-Style: ${request.style || 'Modern, bold, eye-catching'}.
-Make it look like a premium agency-produced ad image. Ultra high quality, cinematic lighting, professional composition.
-CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately. Do not include any signage, banners, labels, captions, or written elements of any kind.`;
+        const imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC advertising photo for: ${request.prompt}. 
+Style: ${request.style || 'Professional documentary-style photography'}.
+CRITICAL PHOTOGRAPHY RULES:
+- This must look like a REAL PHOTOGRAPH taken by a professional photographer on a job site or location
+- Use natural daylight lighting, real-world environments, realistic human proportions and clothing
+- Workers should wear standard industry PPE (hard hats, safety vests, work boots) — NOT sci-fi or fantasy gear
+- Show realistic equipment, tools, vehicles, and job site conditions
+- The scene should look like it was captured during actual work — candid, authentic, documentary-style
+- NO fantasy, sci-fi, futuristic, neon, glowing, or surreal elements whatsoever
+- NO robotic, cyborg, or otherworldly imagery
+- Think National Geographic photographer documenting real contractor work
+- Professional composition with depth of field, natural colors, realistic textures
+CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind.`;
         
         const imgResponse = await this.openai.images.generate({
           model: 'dall-e-3',
@@ -456,7 +465,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
           });
           const imgResponse = await replitOpenai.images.generate({
             model: 'gpt-image-1',
-            prompt: `Stunning professional ad visual for: ${request.prompt}. ${request.style || 'Modern, bold, eye-catching'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Do not include any signage, banners, labels, captions, or written elements.`,
+            prompt: `Realistic professional photography for: ${request.prompt}. ${request.style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph — natural daylight, real people in standard work gear (hard hats, safety vests), real job sites. NO fantasy, sci-fi, neon, or surreal elements. Think photojournalism. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`,
             n: 1,
             size: '1024x1024',
           });
@@ -476,7 +485,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
 
   async generateImageOnly(prompt: string, style?: string): Promise<string> {
     try {
-      const imagePrompt = `${prompt}. Style: ${style || 'Professional, cinematic, high-end advertising'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately. Do not include any signage, banners, labels, captions, or written elements of any kind.`;
+      const imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC image for: ${prompt}. Style: ${style || 'Professional documentary-style photography'}. Must look like a REAL PHOTOGRAPH — natural daylight, real people in standard work gear, real environments. NO fantasy, sci-fi, futuristic, neon, glowing, or surreal elements. Think professional photojournalism. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
       const response = await this.openai.images.generate({
         model: 'dall-e-3',
         prompt: imagePrompt,
@@ -493,7 +502,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
       });
       const response = await replitOpenai.images.generate({
         model: 'gpt-image-1',
-        prompt: `${prompt}. ${style || 'Professional, cinematic'}. Ultra high quality. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Do not include any signage, banners, labels, captions, or written elements.`,
+        prompt: `Realistic professional photography for: ${prompt}. ${style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph. NO fantasy, sci-fi, or surreal elements. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`,
         n: 1,
         size: '1024x1024',
       });
