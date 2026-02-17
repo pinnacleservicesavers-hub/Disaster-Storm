@@ -71,7 +71,12 @@ export default function ContentForge() {
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const contentForgeGuideScript = "Welcome to ContentForge, your AI-powered marketing engine. This is where you create stunning ads for any platform — Facebook, Instagram, TikTok, LinkedIn, Google Ads, and more. Just choose whether you want a Photo Ad, Video Ad, or Full Campaign, describe what you need, and AI generates everything instantly — professional copy, headlines, hashtags, and custom images. You have four tabs to work with: AI Studio where you create ads, My Ads gallery to see everything you've made, Templates for quick-start ideas, and Content for managing your media. You can even upload your own job site photos and videos, and AI will design ads around your real work. Once your ad is ready, publish it directly to your connected accounts with one click. Just describe what you want and let AI handle the rest. I'm Rachel, and I'm here to help!";
+
   const stopAudio = () => {
+    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -79,43 +84,44 @@ export default function ContentForge() {
     setIsPlaying(false);
   };
 
-  const voiceMutation = useMutation({
-    mutationFn: async (message: string) => {
-      const res = await apiRequest("/api/closebot/chat", "POST", {
-        message,
-        history: [],
-        context: { leadName: "contractor", companyName: "your company", trade: "marketing_content" },
-        enableVoice: true,
-      });
-      return res;
-    },
-    onSuccess: (data) => {
-      if (!voiceEnabledRef.current) return;
-      if (data.audioUrl && audioRef.current) {
-        setIsPlaying(true);
-        audioRef.current.src = data.audioUrl;
-        audioRef.current.onended = () => setIsPlaying(false);
-        audioRef.current.play().catch(() => setIsPlaying(false));
-      }
-    },
-  });
+  const speakText = (text: string) => {
+    if (!voiceEnabledRef.current) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(v => /samantha|karen|victoria|zira|female|fiona|moira|tessa/i.test(v.name))
+      || voices.find(v => /google.*us.*female|google.*uk.*female/i.test(v.name))
+      || voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name))
+      || voices.find(v => v.lang.startsWith('en'));
+    if (femaleVoice) utterance.voice = femaleVoice;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.1;
+    utterance.volume = 1.0;
+    utterance.onstart = () => setIsPlaying(true);
+    utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
+    speechRef.current = utterance;
+    setIsPlaying(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
-  const contentForgeGuidePrompt = `You're Rachel, the voice guide for ContentForge — the AI-powered marketing engine inside WorkHub. Give a warm, professional walkthrough of what this module does. Cover these points naturally in about 4-5 sentences:
-
-1. ContentForge is your AI creative studio — describe ANY ad you want and AI creates it instantly with professional copy, headlines, hashtags, and even custom images.
-2. You can create ads for Facebook, Instagram, TikTok, LinkedIn, Google Ads — every major platform.
-3. There are 4 tabs: AI Studio where you create ads, My Ads gallery to see everything you've made, Templates for quick-start ideas, and Content for managing your media.
-4. Once your ad is created, you can publish it directly to your connected social media accounts with one click.
-5. You can even upload your own photos and videos from job sites, and AI will design ads around your real work.
-
-End with something encouraging like "Just describe what you want and let AI handle the rest. I'm here to help!"`;
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length > 0) setVoicesLoaded(true);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   useEffect(() => {
-    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current && voicesLoaded) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate(contentForgeGuidePrompt);
+      setTimeout(() => speakText(contentForgeGuideScript), 500);
     }
-  }, []);
+  }, [voicesLoaded]);
 
   const toggleVoice = () => {
     const newEnabled = !isVoiceEnabled;
@@ -128,7 +134,7 @@ End with something encouraging like "Just describe what you want and let AI hand
 
   const playRachelVoice = (message: string) => {
     if (voiceEnabledRef.current) {
-      voiceMutation.mutate(message);
+      speakText(message);
     }
   };
 
@@ -338,17 +344,16 @@ End with something encouraging like "Just describe what you want and let AI hand
                 onClick={() => {
                   setIsVoiceEnabled(true);
                   voiceEnabledRef.current = true;
-                  voiceMutation.mutate(contentForgeGuidePrompt);
+                  speakText(contentForgeGuideScript);
                 }}
-                disabled={voiceMutation.isPending}
                 className="border-white/30 text-white hover:bg-white/10"
               >
-                {voiceMutation.isPending ? (
+                {isPlaying ? (
                   <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
                 ) : (
                   <Mic className="w-4 h-4 mr-2" />
                 )}
-                {voiceMutation.isPending ? 'Loading Guide...' : 'Voice Guide'}
+                {isPlaying ? 'Playing...' : 'Voice Guide'}
               </Button>
               <Button
                 variant="ghost"

@@ -70,7 +70,12 @@ export default function MediaVault() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
 
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const mediaVaultGuideScript = "Welcome to MediaVault Creative Studio, your all-in-one media powerhouse. This is where you store, organize, and protect all your job site photos and videos in one secure place. The Upload Center lets you drag and drop files, or capture photos and video directly from your camera. In the AI Video tab, just describe any video concept and AI creates a full storyboard with scenes, voiceover scripts, music suggestions, and visual direction. Flyers and Ads generates professional promotional materials instantly — describe what you want and AI creates the design with images and copy. The Brochures tab creates full multi-page campaigns with cover panels, service listings, testimonials, and contact info. Sound Studio handles radio ads, voiceovers, and audio content. And the Campaigns tab ties everything together for coordinated marketing across all your platforms. This is your creative team in a box — just describe what you need and I'll build it for you! I'm Rachel, and I'm here to help.";
+
   const stopAudio = () => {
+    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -78,45 +83,44 @@ export default function MediaVault() {
     setIsPlaying(false);
   };
 
-  const voiceMutation = useMutation({
-    mutationFn: async (message: string) => {
-      const res = await apiRequest("/api/closebot/chat", "POST", {
-        message,
-        history: [],
-        context: { leadName: "contractor", companyName: "your company", trade: "media_documentation" },
-        enableVoice: true,
-      });
-      return res;
-    },
-    onSuccess: (data) => {
-      if (!voiceEnabledRef.current) return;
-      if (data.audioUrl && audioRef.current) {
-        setIsPlaying(true);
-        audioRef.current.src = data.audioUrl;
-        audioRef.current.onended = () => setIsPlaying(false);
-        audioRef.current.play().catch(() => setIsPlaying(false));
-      }
-    },
-  });
+  const speakText = (text: string) => {
+    if (!voiceEnabledRef.current) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(v => /samantha|karen|victoria|zira|female|fiona|moira|tessa/i.test(v.name))
+      || voices.find(v => /google.*us.*female|google.*uk.*female/i.test(v.name))
+      || voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name))
+      || voices.find(v => v.lang.startsWith('en'));
+    if (femaleVoice) utterance.voice = femaleVoice;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.1;
+    utterance.volume = 1.0;
+    utterance.onstart = () => setIsPlaying(true);
+    utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
+    speechRef.current = utterance;
+    setIsPlaying(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
-  const mediaVaultGuidePrompt = `You're Rachel, the voice guide for MediaVault Creative Studio — the all-in-one media powerhouse inside WorkHub. Give a warm, professional walkthrough of everything this module can do. Cover these points naturally in about 6-7 sentences:
-
-1. MediaVault is your complete creative studio — store, organize, and protect all your job site photos and videos in one secure place.
-2. Upload Center lets you drag and drop photos and videos, or even capture them directly with your phone camera right here.
-3. AI Video tab lets you describe any video concept and AI creates a full storyboard with scenes, voiceover scripts, music suggestions, and visual direction.
-4. Flyers and Ads tab generates professional promotional materials — just describe what you want and AI creates the design with images and copy.
-5. Brochures tab creates full multi-page brochure campaigns with cover panels, service listings, testimonials, and contact info.
-6. Sound Studio is for radio ads, voiceovers, and audio content — describe what you need and AI writes the scripts and sound design.
-7. Campaigns tab ties everything together for coordinated marketing across platforms, and the Created gallery stores everything you've made.
-
-End with something encouraging like "This is your creative team in a box — just describe what you need and I'll build it for you!"`;
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length > 0) setVoicesLoaded(true);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   useEffect(() => {
-    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current && voicesLoaded) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate(mediaVaultGuidePrompt);
+      setTimeout(() => speakText(mediaVaultGuideScript), 500);
     }
-  }, []);
+  }, [voicesLoaded]);
 
   useEffect(() => {
     return () => {
@@ -134,7 +138,7 @@ End with something encouraging like "This is your creative team in a box — jus
   };
 
   const playRachelVoice = (message: string) => {
-    if (voiceEnabledRef.current) voiceMutation.mutate(message);
+    if (voiceEnabledRef.current) speakText(message);
   };
 
   const createMutation = useMutation({
@@ -396,17 +400,16 @@ End with something encouraging like "This is your creative team in a box — jus
                 onClick={() => {
                   setIsVoiceEnabled(true);
                   voiceEnabledRef.current = true;
-                  voiceMutation.mutate(mediaVaultGuidePrompt);
+                  speakText(mediaVaultGuideScript);
                 }}
-                disabled={voiceMutation.isPending}
                 className="border-white/30 text-white hover:bg-white/10"
               >
-                {voiceMutation.isPending ? (
+                {isPlaying ? (
                   <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
                 ) : (
                   <Headphones className="w-4 h-4 mr-2" />
                 )}
-                {voiceMutation.isPending ? 'Loading Guide...' : 'Voice Guide'}
+                {isPlaying ? 'Playing...' : 'Voice Guide'}
               </Button>
               <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
                 {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
