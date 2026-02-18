@@ -137,9 +137,7 @@ Requirements:
 - Professional aesthetic matching the industry
 - Clean, uncluttered composition
 - Trust-building visuals
-- CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image. The image must be PURELY VISUAL with zero text elements of any kind. Text will be added separately.
-- Do not include any signage, banners, labels, captions, or written elements of any kind.
-- No text overlay needed — the image should contain ONLY visual imagery, no characters or glyphs.`;
+ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, captions, phone numbers, URLs, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only photos, illustrations, and graphics with zero text elements. Text will be overlaid separately in post-production. If the image contains even a single letter or number it is a failure.`;
 
     const response = await this.openai.images.generate({
       model: 'dall-e-3',
@@ -472,7 +470,7 @@ Style: Pixar/Disney-quality 3D animated look, bright saturated colors, fun chara
 - Use bold colors, clean lines, and dynamic poses
 - Make it look like a frame from a premium animated commercial
 - Fun, energetic, family-friendly cartoon aesthetic
-CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only illustrations and graphics. Text will be overlaid separately. If the image contains even a single letter or number it is a failure.`;
         } else if (isComicalStyle) {
           imagePrompt = `Create a FUNNY, HUMOROUS advertising image for: ${request.prompt}. 
 Style: Comedic, witty, makes people laugh out loud.
@@ -481,7 +479,7 @@ Style: Comedic, witty, makes people laugh out loud.
 - Keep it clean humor but genuinely funny, not corny
 - Bright, eye-catching colors that make people stop scrolling
 - Can be slightly cartoonish or illustrated if it makes it funnier
-CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only photos, illustrations, and graphics. Text will be overlaid separately in post-production. If the image contains even a single letter or number it is a failure.`;
         } else {
           imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC advertising photo for: ${request.prompt}. 
 Style: ${request.style || 'Professional documentary-style photography'}.
@@ -495,7 +493,7 @@ CRITICAL PHOTOGRAPHY RULES:
 - NO robotic, cyborg, or otherworldly imagery
 - Think National Geographic photographer documenting real contractor work
 - Professional composition with depth of field, natural colors, realistic textures
-CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only photos, illustrations, and graphics. Text will be overlaid separately in post-production. If the image contains even a single letter or number it is a failure.`;
         }
         
         const imgResponse = await this.openai.images.generate({
@@ -516,7 +514,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
           });
           const imgResponse = await replitOpenai.images.generate({
             model: 'gpt-image-1',
-            prompt: `Realistic professional photography for: ${request.prompt}. ${request.style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph — natural daylight, real people in standard work gear (hard hats, safety vests), real job sites. NO fantasy, sci-fi, neon, or surreal elements. Think photojournalism. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`,
+            prompt: `Realistic professional photography for: ${request.prompt}. ${request.style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph — natural daylight, real people in standard work gear (hard hats, safety vests), real job sites. NO fantasy, sci-fi, neon, or surreal elements. Think photojournalism. ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, or ANY written characters in the image. Purely visual only.`,
             n: 1,
             size: '1024x1024',
           });
@@ -536,7 +534,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
 
   async generateImageOnly(prompt: string, style?: string): Promise<string> {
     try {
-      const imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC image for: ${prompt}. Style: ${style || 'Professional documentary-style photography'}. Must look like a REAL PHOTOGRAPH — natural daylight, real people in standard work gear, real environments. NO fantasy, sci-fi, futuristic, neon, glowing, or surreal elements. Think professional photojournalism. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`;
+      const imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC image for: ${prompt}. Style: ${style || 'Professional documentary-style photography'}. Must look like a REAL PHOTOGRAPH — natural daylight, real people in standard work gear, real environments. NO fantasy, sci-fi, futuristic, neon, glowing, or surreal elements. Think professional photojournalism. ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, or ANY written characters whatsoever. The image must be PURELY VISUAL with zero text elements. Text will be added separately in post-production.`;
       const response = await this.openai.images.generate({
         model: 'dall-e-3',
         prompt: imagePrompt,
@@ -553,7 +551,7 @@ CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, o
       });
       const response = await replitOpenai.images.generate({
         model: 'gpt-image-1',
-        prompt: `Realistic professional photography for: ${prompt}. ${style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph. NO fantasy, sci-fi, or surreal elements. CRITICAL: Do NOT include ANY text, words, letters, numbers, logos, watermarks, or typography in the image.`,
+        prompt: `Realistic professional photography for: ${prompt}. ${style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph. NO fantasy, sci-fi, or surreal elements. ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, or ANY written characters in the image. Purely visual only.`,
         n: 1,
         size: '1024x1024',
       });

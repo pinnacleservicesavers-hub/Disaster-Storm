@@ -6,7 +6,7 @@ import {
   Film, Wand2, Sparkles, Loader2, Copy, Check, FileText,
   Megaphone, PenTool, Palette, Send, RefreshCw, X, Maximize2,
   Play, Layers, BookOpen, LayoutTemplate, ImagePlus,
-  Mic, Radio, Music, Headphones, AudioWaveform, Aperture
+  Mic, Radio, Music, Headphones, AudioWaveform, Aperture, Pencil, MessageSquare
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -181,6 +181,11 @@ export default function MediaVault() {
       return;
     }
     createMutation.mutate({ prompt: creativePrompt.trim(), adType: creativeType, style: creativeStyle, platform: creativePlatform });
+  };
+
+  const handleRevise = (revisedPrompt: string) => {
+    setCreativePrompt(revisedPrompt);
+    createMutation.mutate({ prompt: revisedPrompt.trim(), adType: creativeType, style: creativeStyle, platform: creativePlatform });
   };
 
   const copyToClipboard = (text: string, field: string) => {
@@ -618,6 +623,7 @@ export default function MediaVault() {
               setResult={setCreativeResult}
               isCreating={createMutation.isPending}
               onCreate={handleCreate}
+              onRevise={handleRevise}
               onRegenerateImage={(p, s) => generateImageMutation.mutate({ prompt: p, style: s })}
               isRegenerating={generateImageMutation.isPending}
               copiedField={copiedField}
@@ -654,6 +660,7 @@ export default function MediaVault() {
               setResult={setCreativeResult}
               isCreating={createMutation.isPending}
               onCreate={handleCreate}
+              onRevise={handleRevise}
               onRegenerateImage={(p, s) => generateImageMutation.mutate({ prompt: p, style: s })}
               isRegenerating={generateImageMutation.isPending}
               copiedField={copiedField}
@@ -690,6 +697,7 @@ export default function MediaVault() {
               setResult={setCreativeResult}
               isCreating={createMutation.isPending}
               onCreate={handleCreate}
+              onRevise={handleRevise}
               onRegenerateImage={(p, s) => generateImageMutation.mutate({ prompt: p, style: s })}
               isRegenerating={generateImageMutation.isPending}
               copiedField={copiedField}
@@ -868,7 +876,7 @@ export default function MediaVault() {
   );
 }
 
-function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPrompt, style, setStyle, platform, setPlatform, creativeType, setCreativeType, result, setResult, isCreating, onCreate, onRegenerateImage, isRegenerating, copiedField, onCopy, onImageFullscreen, examples, color }: {
+function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPrompt, style, setStyle, platform, setPlatform, creativeType, setCreativeType, result, setResult, isCreating, onCreate, onRevise, onRegenerateImage, isRegenerating, copiedField, onCopy, onImageFullscreen, examples, color }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
@@ -885,6 +893,7 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
   setResult: (v: CreativeResult | null) => void;
   isCreating: boolean;
   onCreate: () => void;
+  onRevise: (revisedPrompt: string) => void;
   onRegenerateImage: (prompt: string, style: string) => void;
   isRegenerating: boolean;
   copiedField: string | null;
@@ -894,6 +903,8 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
   color: string;
 }) {
   const { toast } = useToast();
+  const [revisionMode, setRevisionMode] = useState(false);
+  const [revisionText, setRevisionText] = useState('');
   useEffect(() => {
     setCreativeType(defaultType);
   }, [defaultType]);
@@ -1235,6 +1246,51 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                 </CardContent>
               </Card>
             )}
+
+            <Card className={`border-2 ${revisionMode ? c.border : 'border-amber-200 dark:border-amber-800'}`}>
+              <CardContent className="pt-5 pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Pencil className="w-4 h-4 text-amber-600" />
+                    Edit & Revise
+                  </h4>
+                  {!revisionMode && (
+                    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30" onClick={() => setRevisionMode(true)}>
+                      <MessageSquare className="w-3.5 h-3.5 mr-1.5" />Request Changes
+                    </Button>
+                  )}
+                </div>
+                {!revisionMode ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Not quite right? Click "Request Changes" to tell Rachel what to adjust — copy, headlines, style, image, or anything else.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={revisionText}
+                      onChange={(e) => setRevisionText(e.target.value)}
+                      placeholder="Tell Rachel what to change... Examples:&#10;• Make the headline more urgent&#10;• Change the color scheme to blue and white&#10;• Add a financing offer section&#10;• Make it more professional and less casual&#10;• Regenerate the image with a different angle"
+                      className="min-h-[100px] resize-none text-sm border-amber-200 dark:border-amber-800 focus:border-amber-400"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                        disabled={!revisionText.trim() || isCreating}
+                        onClick={() => {
+                          const revisedPrompt = `REVISION REQUEST: Take the previous result and apply these changes: ${revisionText.trim()}\n\nOriginal prompt: ${prompt}`;
+                          setRevisionMode(false);
+                          setRevisionText('');
+                          onRevise(revisedPrompt);
+                        }}
+                      >
+                        {isCreating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Revising...</> : <><Wand2 className="w-4 h-4 mr-2" />Apply Changes</>}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => { setRevisionMode(false); setRevisionText(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-slate-200 dark:border-slate-700">
               <CardContent className="pt-5 pb-4">
