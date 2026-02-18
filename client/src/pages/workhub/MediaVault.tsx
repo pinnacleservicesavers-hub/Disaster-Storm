@@ -893,6 +893,7 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
   examples: string[];
   color: string;
 }) {
+  const { toast } = useToast();
   useEffect(() => {
     setCreativeType(defaultType);
   }, [defaultType]);
@@ -1017,36 +1018,123 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                     <Button size="sm" variant="secondary" onClick={onImageFullscreen}><Maximize2 className="w-4 h-4 mr-1" />View Full Size</Button>
                   </div>
                 </div>
-                <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-t flex flex-wrap items-center gap-2">
-                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold" onClick={async () => {
-                    try {
-                      const response = await fetch(result.imageUrl!);
-                      const blob = await response.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `brochure-${Date.now()}.png`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                      toast({ title: "Downloaded!", description: "Your brochure image has been saved. You can print it from your downloads folder." });
-                    } catch {
-                      const a = document.createElement('a');
-                      a.href = result.imageUrl!;
-                      a.download = `brochure-${Date.now()}.png`;
-                      a.click();
-                      toast({ title: "Downloading...", description: "Your file is being downloaded." });
-                    }
-                  }}>
-                    <Download className="w-4 h-4 mr-2" />Download Image to Print
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => onRegenerateImage(prompt, style)} disabled={isRegenerating}>
-                    {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RefreshCw className="w-4 h-4 mr-1" />Generate New Image</>}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={onImageFullscreen}>
-                    <Maximize2 className="w-4 h-4 mr-1" />Full Size
-                  </Button>
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-t space-y-3">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Download for Printing</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold" onClick={async () => {
+                      try {
+                        const { jsPDF } = await import('jspdf');
+                        const response = await fetch(result.imageUrl!);
+                        const blob = await response.blob();
+                        const imgUrl = URL.createObjectURL(blob);
+                        const img = new window.Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                          const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+                          const pageW = 11;
+                          const pageH = 8.5;
+                          const margin = 0.25;
+                          const printW = pageW - margin * 2;
+                          const printH = pageH - margin * 2;
+                          const imgRatio = img.width / img.height;
+                          const printRatio = printW / printH;
+                          let drawW: number, drawH: number, drawX: number, drawY: number;
+                          if (imgRatio > printRatio) {
+                            drawW = printW;
+                            drawH = printW / imgRatio;
+                            drawX = margin;
+                            drawY = margin + (printH - drawH) / 2;
+                          } else {
+                            drawH = printH;
+                            drawW = printH * imgRatio;
+                            drawX = margin + (printW - drawW) / 2;
+                            drawY = margin;
+                          }
+                          pdf.addImage(imgUrl, 'PNG', drawX, drawY, drawW, drawH);
+                          pdf.save(`brochure-print-ready-${Date.now()}.pdf`);
+                          URL.revokeObjectURL(imgUrl);
+                          toast({ title: "PDF Ready!", description: "Print-ready PDF saved. Open it and select 'Actual Size' in your printer settings for best results." });
+                        };
+                        img.src = imgUrl;
+                      } catch {
+                        toast({ title: "Error", description: "Could not create PDF. Try the image download instead.", variant: "destructive" });
+                      }
+                    }}>
+                      <FileText className="w-4 h-4 mr-2" />Download Print-Ready PDF (Letter)
+                    </Button>
+                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={async () => {
+                      try {
+                        const { jsPDF } = await import('jspdf');
+                        const response = await fetch(result.imageUrl!);
+                        const blob = await response.blob();
+                        const imgUrl = URL.createObjectURL(blob);
+                        const img = new window.Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                          const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: [14, 8.5] });
+                          const pageW = 14;
+                          const pageH = 8.5;
+                          const margin = 0.25;
+                          const printW = pageW - margin * 2;
+                          const printH = pageH - margin * 2;
+                          const imgRatio = img.width / img.height;
+                          const printRatio = printW / printH;
+                          let drawW: number, drawH: number, drawX: number, drawY: number;
+                          if (imgRatio > printRatio) {
+                            drawW = printW;
+                            drawH = printW / imgRatio;
+                            drawX = margin;
+                            drawY = margin + (printH - drawH) / 2;
+                          } else {
+                            drawH = printH;
+                            drawW = printH * imgRatio;
+                            drawX = margin + (printW - drawW) / 2;
+                            drawY = margin;
+                          }
+                          pdf.addImage(imgUrl, 'PNG', drawX, drawY, drawW, drawH);
+                          pdf.save(`brochure-trifold-${Date.now()}.pdf`);
+                          URL.revokeObjectURL(imgUrl);
+                          toast({ title: "Tri-Fold PDF Ready!", description: "PDF sized for 8.5x14 Legal paper tri-fold brochures. Print on both sides for professional results." });
+                        };
+                        img.src = imgUrl;
+                      } catch {
+                        toast({ title: "Error", description: "Could not create PDF. Try the image download instead.", variant: "destructive" });
+                      }
+                    }}>
+                      <FileText className="w-4 h-4 mr-2" />Download Tri-Fold PDF (Legal)
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      try {
+                        const response = await fetch(result.imageUrl!);
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `brochure-image-${Date.now()}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        toast({ title: "Image Downloaded!", description: "PNG image saved to your downloads." });
+                      } catch {
+                        const a = document.createElement('a');
+                        a.href = result.imageUrl!;
+                        a.download = `brochure-image-${Date.now()}.png`;
+                        a.click();
+                      }
+                    }}>
+                      <Download className="w-4 h-4 mr-1" />PNG Image
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => onRegenerateImage(prompt, style)} disabled={isRegenerating}>
+                      {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RefreshCw className="w-4 h-4 mr-1" />Generate New Image</>}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={onImageFullscreen}>
+                      <Maximize2 className="w-4 h-4 mr-1" />Full Size
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Tip: For best print quality, use "Actual Size" or "Fit to Page" in your printer settings. Use glossy paper for professional results.</p>
                 </div>
               </Card>
             )}
