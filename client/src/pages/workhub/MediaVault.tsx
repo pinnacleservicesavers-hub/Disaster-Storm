@@ -6,7 +6,8 @@ import {
   Film, Wand2, Sparkles, Loader2, Copy, Check, FileText,
   Megaphone, PenTool, Palette, Send, RefreshCw, X, Maximize2,
   Play, Layers, BookOpen, LayoutTemplate, ImagePlus,
-  Mic, Radio, Music, Headphones, AudioWaveform, Aperture, Pencil, MessageSquare
+  Mic, Radio, Music, Headphones, AudioWaveform, Aperture, Pencil, MessageSquare,
+  ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -383,10 +384,15 @@ export default function MediaVault() {
 
       <div className="bg-gradient-to-r from-slate-800 via-indigo-900 to-purple-900 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 text-slate-300 text-sm mb-2">
-            <Link to="/workhub" className="hover:text-white">WorkHub</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span>MediaVault Creative Studio</span>
+          <div className="flex items-center gap-3 mb-3">
+            <Link to="/workhub" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              Back to WorkHub
+            </Link>
+            <div className="flex items-center gap-2 text-slate-300 text-sm">
+              <ChevronRight className="w-4 h-4" />
+              <span>MediaVault Creative Studio</span>
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -427,7 +433,12 @@ export default function MediaVault() {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <AutonomousAgentBadge moduleName="MediaVault" />
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'video') setCreativeType('video_concept');
+          else if (tab === 'flyers') setCreativeType('image');
+          else if (tab === 'brochures') setCreativeType('full_campaign');
+        }}>
           <TabsList className="flex flex-wrap gap-1 w-full max-w-6xl mb-6">
             <TabsTrigger value="vault" className="flex items-center gap-1.5">
               <Folder className="w-4 h-4" />
