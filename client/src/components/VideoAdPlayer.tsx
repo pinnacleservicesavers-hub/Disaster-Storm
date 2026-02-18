@@ -57,9 +57,11 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
   const startTimeRef = useRef<number>(0);
   const pausedAtRef = useRef<number>(0);
 
-  const scenes = videoConcept.scenes || [];
+  const scenes = (videoConcept.scenes && videoConcept.scenes.length > 0)
+    ? videoConcept.scenes
+    : [{ description: 'Video showcase', duration: '10 sec', voiceover: videoScript || 'Your video ad', visualNotes: '' }];
   const sceneDurations = scenes.map(s => parseDuration(s.duration));
-  const totalDuration = sceneDurations.reduce((a, b) => a + b, 0);
+  const totalDuration = Math.max(sceneDurations.reduce((a, b) => a + b, 0), 5);
 
   useEffect(() => {
     const img = new window.Image();
@@ -279,11 +281,18 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
     if (audioRef.current) {
       audioRef.current.currentTime = pausedAtRef.current;
       audioRef.current.muted = isMuted;
+      audioRef.current.onended = () => {
+        cancelAnimationFrame(animFrameRef.current);
+        setIsPlaying(false);
+        setCurrentTime(totalDuration);
+        setProgress(100);
+        pausedAtRef.current = 0;
+      };
       audioRef.current.play().catch(() => {});
     }
 
     animFrameRef.current = requestAnimationFrame(drawFrame);
-  }, [loadedImage, drawFrame, isMuted]);
+  }, [loadedImage, drawFrame, isMuted, totalDuration]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
@@ -355,8 +364,15 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
         }
       }
 
+      const mimeTypes = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4'
+      ];
+      const supportedMime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || '';
       const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
+        ...(supportedMime ? { mimeType: supportedMime } : {}),
         videoBitsPerSecond: 5000000
       });
 
@@ -366,11 +382,12 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const ext = supportedMime.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: supportedMime || 'video/webm' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `video-ad-${Date.now()}.webm`;
+        a.download = `video-ad-${Date.now()}.${ext}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

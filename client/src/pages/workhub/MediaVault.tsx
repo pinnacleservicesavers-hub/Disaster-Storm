@@ -25,6 +25,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
+import VideoAdPlayer from '@/components/VideoAdPlayer';
 
 interface CreativeResult {
   adCopy?: string;
@@ -1203,6 +1204,16 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {result.videoConcept && result.imageUrl && (
+              <VideoAdPlayer
+                imageUrl={result.imageUrl}
+                videoConcept={result.videoConcept}
+                videoScript={result.videoScript}
+                headline={result.headlines?.[0]}
+                callToAction={result.callToAction}
+              />
             )}
 
             {result.videoConcept && (
