@@ -1014,14 +1014,39 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                 <div className="relative group">
                   <img src={result.imageUrl} alt="AI Generated" className="w-full max-h-[500px] object-cover cursor-pointer" onClick={onImageFullscreen} />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="secondary" onClick={onImageFullscreen}><Maximize2 className="w-4 h-4 mr-1" />View</Button>
-                      <Button size="sm" variant="secondary" onClick={() => { if (result.imageUrl) { const a = document.createElement('a'); a.href = result.imageUrl; a.download = 'creative.png'; a.target = '_blank'; a.click(); } }}><Download className="w-4 h-4 mr-1" />Download</Button>
-                      <Button size="sm" variant="secondary" onClick={() => onRegenerateImage(prompt, style)} disabled={isRegenerating}>
-                        {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RefreshCw className="w-4 h-4 mr-1" />New Image</>}
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="secondary" onClick={onImageFullscreen}><Maximize2 className="w-4 h-4 mr-1" />View Full Size</Button>
                   </div>
+                </div>
+                <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-t flex flex-wrap items-center gap-2">
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold" onClick={async () => {
+                    try {
+                      const response = await fetch(result.imageUrl!);
+                      const blob = await response.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `brochure-${Date.now()}.png`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                      toast({ title: "Downloaded!", description: "Your brochure image has been saved. You can print it from your downloads folder." });
+                    } catch {
+                      const a = document.createElement('a');
+                      a.href = result.imageUrl!;
+                      a.download = `brochure-${Date.now()}.png`;
+                      a.click();
+                      toast({ title: "Downloading...", description: "Your file is being downloaded." });
+                    }
+                  }}>
+                    <Download className="w-4 h-4 mr-2" />Download Image to Print
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onRegenerateImage(prompt, style)} disabled={isRegenerating}>
+                    {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <><RefreshCw className="w-4 h-4 mr-1" />Generate New Image</>}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={onImageFullscreen}>
+                    <Maximize2 className="w-4 h-4 mr-1" />Full Size
+                  </Button>
                 </div>
               </Card>
             )}
@@ -1131,12 +1156,25 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                 </h4>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {result.imageUrl && (
-                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = result.imageUrl!;
-                      a.download = `flyer-${Date.now()}.png`;
-                      a.target = '_blank';
-                      a.click();
+                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={async () => {
+                      try {
+                        const response = await fetch(result.imageUrl!);
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `flyer-${Date.now()}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        toast({ title: "Downloaded!", description: "Image saved to your downloads folder." });
+                      } catch {
+                        const a = document.createElement('a');
+                        a.href = result.imageUrl!;
+                        a.download = `flyer-${Date.now()}.png`;
+                        a.click();
+                      }
                     }}>
                       <Download className="w-3.5 h-3.5 mr-1.5" />Download Flyer
                     </Button>
