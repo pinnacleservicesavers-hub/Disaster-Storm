@@ -6,7 +6,7 @@ import {
   Send, Video, Film, Copy, RefreshCw, Wand2, Loader2, Check,
   MessageSquare, Target, Hash, Play, X, Maximize2, ChevronDown,
   Megaphone, PenTool, Camera, Layers, ArrowRight, Star, Upload,
-  VideoIcon, Aperture, Trash2, Mic
+  VideoIcon, Aperture, Trash2, Mic, ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SiFacebook, SiInstagram, SiLinkedin, SiTiktok, SiGoogle, SiX } from 'react-icons/si';
 import { Link2, CheckCircle2 } from 'lucide-react';
 import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
+import VideoAdPlayer from '@/components/VideoAdPlayer';
 
 interface AdResult {
   adCopy: string;
@@ -327,10 +328,15 @@ export default function ContentForge() {
 
       <div className="bg-gradient-to-r from-pink-600 via-rose-600 to-purple-700 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 text-pink-200 text-sm mb-2">
-            <Link to="/workhub" className="hover:text-white">WorkHub</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span>ContentForge AI Ad Studio</span>
+          <div className="flex items-center gap-3 mb-3">
+            <Link to="/workhub" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              Back to WorkHub
+            </Link>
+            <div className="flex items-center gap-2 text-pink-200 text-sm">
+              <ChevronRight className="w-4 h-4" />
+              <span>ContentForge AI Ad Studio</span>
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -608,6 +614,31 @@ export default function ContentForge() {
 
                 {adResult && (
                   <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAdResult(null);
+                          setPrompt('');
+                        }}
+                        className="text-red-500 border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30"
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Clear & Start Over
+                      </Button>
+                    </div>
+
+                    {adResult.imageUrl && adResult.videoConcept && (
+                      <VideoAdPlayer
+                        imageUrl={adResult.imageUrl}
+                        videoConcept={adResult.videoConcept}
+                        videoScript={adResult.videoScript}
+                        headline={adResult.headlines?.[0]}
+                        callToAction={adResult.callToAction}
+                      />
+                    )}
+
                     {adResult.imageUrl && (
                       <Card className="overflow-hidden">
                         <div className="relative group">
