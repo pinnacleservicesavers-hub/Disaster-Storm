@@ -142,11 +142,11 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
     ctx.fillRect(0, 0, w, h);
 
     const kenBurnsEffects = [
-      { startScale: 1.0, endScale: 1.15, startX: 0, endX: -0.05, startY: 0, endY: -0.03 },
-      { startScale: 1.15, endScale: 1.0, startX: -0.05, endX: 0, startY: -0.03, endY: 0 },
-      { startScale: 1.0, endScale: 1.1, startX: 0, endX: -0.08, startY: 0, endY: 0 },
-      { startScale: 1.1, endScale: 1.0, startX: -0.08, endX: 0, startY: 0, endY: 0 },
-      { startScale: 1.0, endScale: 1.2, startX: 0, endX: 0, startY: 0, endY: -0.06 },
+      { startScale: 1.0, endScale: 1.05, startX: 0, endX: 0, startY: 0, endY: -0.01 },
+      { startScale: 1.05, endScale: 1.0, startX: 0, endX: 0, startY: -0.01, endY: 0 },
+      { startScale: 1.0, endScale: 1.04, startX: 0, endX: -0.015, startY: 0, endY: 0 },
+      { startScale: 1.04, endScale: 1.0, startX: -0.015, endX: 0, startY: 0, endY: 0 },
+      { startScale: 1.0, endScale: 1.06, startX: 0, endX: 0, startY: 0, endY: 0 },
     ];
 
     const effect = kenBurnsEffects[index % kenBurnsEffects.length];
