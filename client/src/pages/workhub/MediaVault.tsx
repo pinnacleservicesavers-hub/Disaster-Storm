@@ -1033,6 +1033,22 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
 
         {result && (
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setResult(null);
+                  setPrompt('');
+                  setRevisionMode(false);
+                  setRevisionText('');
+                }}
+                className="text-red-500 border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear & Start Over
+              </Button>
+            </div>
             {result.imageUrl && (
               <Card className="overflow-hidden">
                 <div className="relative group">
