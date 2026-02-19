@@ -886,7 +886,7 @@ Rules:
     }
 
     const generateWatermarkImage = async (sceneDescription: string): Promise<string> => {
-      const imgPrompt = `Cinematic black and white dramatic photograph: ${sceneDescription}. Professional photojournalism style, high contrast black and white, dramatic shadows and visible lighting detail, powerful composition. Shot like an award-winning documentary photograph. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text. Only render the photographic scene.`;
+      const imgPrompt = `Realistic professional photograph for a contractor marketing brochure: ${sceneDescription}. Shot with a high-end DSLR camera, natural outdoor lighting, real-world work environment. Black and white photography with rich tonal range and visible detail in shadows and highlights. The scene must look like an actual photograph taken on a real job site — not artistic, not abstract, not illustrated. Show real equipment, real workers, real locations. Do NOT render ANY text, words, letters, numbers, logos, watermarks, or written characters of any kind. The image must contain ZERO text or signage. Only the photographic scene.`;
       try {
         const imgResponse = await this.openai.images.generate({
           model: 'dall-e-3',
@@ -919,60 +919,35 @@ Rules:
       }
     };
 
-    const panelImageDescriptions: Record<string, string> = {};
     const allPanels = [...(brochureData.outsidePanels || []), ...(brochureData.insidePanels || [])];
-    for (const panel of allPanels) {
-      const pos = panel.position || '';
-      const title = (panel.title || '').toLowerCase();
-      const bodyText = (panel.body || []).join(' ').toLowerCase();
-      const combined = `${title} ${bodyText}`;
-
-      if (pos === 'front_cover') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'front');
-      } else if (pos === 'back_cover') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'back');
-      } else if (pos === 'inside_flap') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'trust');
-      } else if (pos === 'inside_left') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'residential');
-      } else if (pos === 'inside_center') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'emergency');
-      } else if (pos === 'inside_right') {
-        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'commercial');
-      }
-    }
 
     try {
       const imagePromises: Promise<void>[] = [];
 
-      const frontScene = panelImageDescriptions['front_cover'] || 'Professional crew working with heavy equipment in dramatic lighting';
-      imagePromises.push(
-        generateWatermarkImage(frontScene).then(url => {
-          brochureData.heroImageUrl = url;
-          const fp = brochureData.outsidePanels?.find((p: any) => p.position === 'front_cover');
-          if (fp) fp.watermarkUrl = url;
-        })
-      );
+      for (const panel of allPanels) {
+        const pos = panel.position || '';
+        const title = (panel.title || '').toLowerCase();
+        const bodyText = (panel.body || []).join(' ').toLowerCase();
+        const combined = `${title} ${bodyText}`;
 
-      const insidePositions = ['inside_left', 'inside_center', 'inside_right'];
-      for (const pos of insidePositions) {
-        const scene = panelImageDescriptions[pos];
-        if (scene) {
-          imagePromises.push(
-            generateWatermarkImage(scene).then(url => {
-              const panel = brochureData.insidePanels?.find((p: any) => p.position === pos);
-              if (panel) panel.watermarkUrl = url;
-            })
-          );
-        }
-      }
+        let panelType = 'front';
+        if (pos === 'front_cover' || pos === 'front') panelType = 'front';
+        else if (pos === 'back_cover' || pos === 'back') panelType = 'back';
+        else if (pos === 'inside_flap') panelType = 'trust';
+        else if (pos === 'inside_left' || pos === 'left_panel') panelType = 'residential';
+        else if (pos === 'inside_center') panelType = 'emergency';
+        else if (pos === 'inside_right' || pos === 'right_panel') panelType = 'commercial';
 
-      const backScene = panelImageDescriptions['back_cover'];
-      if (backScene) {
+        const scene = this.inferPanelImageScene(combined, prompt, panelType);
+
         imagePromises.push(
-          generateWatermarkImage(backScene).then(url => {
-            const bp = brochureData.outsidePanels?.find((p: any) => p.position === 'back_cover');
-            if (bp) bp.watermarkUrl = url;
+          generateWatermarkImage(scene).then(url => {
+            if (url) {
+              panel.watermarkUrl = url;
+              if (pos === 'front_cover' || pos === 'front') {
+                brochureData.heroImageUrl = url;
+              }
+            }
           })
         );
       }
@@ -989,17 +964,23 @@ Rules:
     const lc = (fullPrompt + ' ' + panelContent).toLowerCase();
 
     const sceneMap: Record<string, string[]> = {
-      'tree_residential': ['bucket truck parked in a suburban residential driveway, crew trimming large oak tree near a home, clean neighborhood setting'],
-      'tree_emergency': ['large crane lifting a massive fallen tree off a damaged home roof after a storm, broken limbs and debris, emergency lighting, dramatic storm aftermath scene'],
-      'tree_commercial': ['utility line clearance crew working near high-voltage power lines with bucket truck extended, professional safety equipment, strong vertical composition with power poles'],
-      'tree_trust': ['close-up of professional arborist crew in safety gear, hard hats and harnesses, preparing equipment next to a large bucket truck'],
-      'roof_residential': ['roofing crew on a residential roof replacing shingles, ladders and materials visible, suburban neighborhood'],
-      'roof_emergency': ['storm-damaged roof with tarps and emergency repair crew, broken shingles and debris'],
-      'roof_commercial': ['large commercial roofing project on a flat-roof building, crane and equipment on site'],
-      'restoration_residential': ['water damage restoration crew with equipment inside a home, dehumidifiers and fans visible'],
-      'restoration_emergency': ['flood damage aftermath in a residential area, crews with pumps and restoration equipment'],
-      'general_front': ['dramatic wide shot of professional crew working with heavy equipment at a job site, cinematic lighting'],
-      'general_back': ['textured close-up of professional equipment and tools, dramatic shadows and depth'],
+      'tree_front': ['A white bucket truck with its boom arm fully extended high into a massive oak tree, an arborist worker in the bucket cutting branches with a chainsaw, wood chips falling, bright daylight, suburban street with houses visible in background, wide-angle shot from ground level looking up'],
+      'tree_back': ['Close-up of a professional chainsaw resting on a freshly cut tree stump with sawdust and wood chips around it, work gloves and safety helmet sitting next to it, shallow depth of field, outdoor setting'],
+      'tree_residential': ['A bucket truck parked on a residential street next to a large shade tree, crew members on the ground feeding branches into a wood chipper, neat suburban homes in the background, bright daytime, eye-level shot showing the full truck and tree'],
+      'tree_emergency': ['A large yellow crane with its boom extended over a residential roof, lifting a massive fallen tree trunk that crashed through the roof during a storm, broken shingles and debris visible, overcast sky, wide shot showing the full crane and damaged house'],
+      'tree_commercial': ['A row of tall utility poles along a highway with power lines, a bucket truck positioned next to one pole with a lineman trimming tree branches away from the wires, clear sky, shot from the road showing the truck and utility corridor'],
+      'tree_trust': ['Three arborist workers standing together near a bucket truck wearing hard hats, safety harnesses, high-visibility vests, and work boots, professional team photo pose, equipment and ropes visible, outdoor setting with trees in background'],
+      'roof_front': ['Roofing crew on top of a two-story residential house installing new shingles, ladders leaning against the house, bundles of shingles on the roof, bright sunny day, shot from the yard looking up at the workers on the roof'],
+      'roof_back': ['Close-up of a roofer using a nail gun on a roof surface with new shingles being installed, work boots and knee pads visible, roofing materials around'],
+      'roof_residential': ['A residential home with half the roof stripped showing the wood decking and the other half with new shingles installed, a crew member working at the transition line, roofing materials and tools organized on the roof'],
+      'roof_emergency': ['A storm-damaged residential roof with a large blue tarp covering a hole, broken shingles scattered in the yard, a crew member on a ladder inspecting the damage, overcast sky'],
+      'roof_commercial': ['A flat commercial building roof with a crew installing TPO membrane roofing, large rolls of white roofing material, workers using heat welders, HVAC units visible on the rooftop'],
+      'restoration_front': ['A restoration crew in protective suits and respirators setting up industrial dehumidifiers and air movers inside a water-damaged living room, wet carpet partially pulled up, standing water visible'],
+      'restoration_back': ['Close-up of industrial water extraction equipment with hoses running into a flooded room, restoration company equipment staged in a garage'],
+      'restoration_residential': ['Workers using moisture meters on wet drywall inside a home, commercial dehumidifiers running, wet insulation pulled from walls, protective plastic sheeting on furniture'],
+      'restoration_emergency': ['Exterior of a flooded home with water line marks on siding, a restoration van parked in the driveway, crew carrying equipment through the front door, muddy yard'],
+      'general_front': ['A professional contractor crew working outdoors with heavy equipment — a truck, tools, and safety gear visible — bright natural daylight, wide-angle shot of a real work site with workers actively engaged'],
+      'general_back': ['Close-up of well-organized professional work tools — wrenches, drills, safety equipment — laid out on a truck tailgate, outdoor setting with natural light'],
     };
 
     let industry = 'general';
