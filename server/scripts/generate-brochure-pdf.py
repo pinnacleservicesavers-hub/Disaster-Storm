@@ -411,8 +411,8 @@ body {{
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     {bg_css}
-    filter: grayscale(100%) contrast(1.1);
-    opacity: 0.18;
+    filter: grayscale(100%) contrast(1.1) brightness(0.9);
+    opacity: 0.35;
 }}
 
 .fold-line {{
@@ -442,7 +442,7 @@ body {{
 }}
 
 .front-panel {{
-    background: linear-gradient(180deg, rgba(26,26,26,0.3) 0%, rgba(17,17,17,0.55) 50%, rgba(14,14,14,0.85) 100%);
+    background: linear-gradient(180deg, rgba(28,28,28,0.15) 0%, rgba(20,20,20,0.4) 50%, rgba(15,15,15,0.7) 100%);
     text-align: center;
     justify-content: center;
     align-items: center;
@@ -527,7 +527,7 @@ body {{
 }}
 
 .content-panel {{
-    background: linear-gradient(180deg, rgba(28,28,28,0.75) 0%, rgba(17,17,17,0.88) 60%, rgba(14,14,14,0.92) 100%);
+    background: linear-gradient(180deg, rgba(30,30,30,0.55) 0%, rgba(22,22,22,0.65) 60%, rgba(18,18,18,0.75) 100%);
 }}
 
 .panel-header {{

@@ -228,7 +228,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
           style={{
             width: panelWidth,
             minHeight: '480px',
-            background: 'linear-gradient(180deg, #1a1a1a 0%, #111111 40%, #0d0d0d 100%)',
+            background: 'linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 40%, #181818 100%)',
           }}
         >
           {data?.heroImageUrl && (
@@ -236,12 +236,12 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               backgroundImage: `url(${data.heroImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              opacity: 0.55,
+              opacity: 0.7,
               filter: 'grayscale(100%) contrast(1.15)',
             }} />
           )}
           <div className="absolute inset-0" style={{
-            background: 'linear-gradient(180deg, rgba(17,17,17,0.3) 0%, rgba(14,14,14,0.55) 50%, rgba(11,11,11,0.85) 100%)',
+            background: 'linear-gradient(180deg, rgba(28,28,28,0.15) 0%, rgba(20,20,20,0.4) 50%, rgba(15,15,15,0.7) 100%)',
           }} />
           <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: '480px' }}>
             <div className="flex-1 flex flex-col justify-center items-center text-center">
@@ -294,7 +294,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
         style={{
           width: panelWidth,
           minHeight: '480px',
-          background: 'linear-gradient(180deg, #1c1c1c 0%, #141414 50%, #111111 100%)',
+          background: 'linear-gradient(180deg, #252525 0%, #1e1e1e 50%, #1a1a1a 100%)',
         }}
       >
         {data?.heroImageUrl && (
@@ -302,13 +302,12 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             backgroundImage: `url(${data.heroImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: 0.18,
-            filter: 'grayscale(100%) contrast(1.1)',
-            mixBlendMode: 'luminosity' as any,
+            opacity: 0.35,
+            filter: 'grayscale(100%) contrast(1.1) brightness(0.9)',
           }} />
         )}
         <div className="absolute inset-0" style={{
-          background: 'linear-gradient(180deg, rgba(28,28,28,0.75) 0%, rgba(17,17,17,0.88) 60%, rgba(14,14,14,0.92) 100%)',
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.55) 0%, rgba(22,22,22,0.65) 60%, rgba(18,18,18,0.75) 100%)',
         }} />
         <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: '480px' }}>
           <div className="mb-3">
