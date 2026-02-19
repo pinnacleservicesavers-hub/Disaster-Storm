@@ -6,8 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Download, Loader2, FileText, Wand2, Pencil, Eye, RefreshCw, X,
-  Phone, Globe, CheckCircle2, FlipHorizontal
+  Phone, Globe, CheckCircle2, FlipHorizontal, Printer, Ruler, BookOpen
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -33,6 +40,47 @@ interface BrochureData {
   heroImageUrl?: string;
 }
 
+type BrochureFormat = 'tri-fold' | 'bi-fold' | 'single-page';
+type PaperSize = 'letter' | 'legal' | 'a4' | 'tabloid' | 'a3' | 'a5';
+type PaperType = 'glossy' | 'matte' | 'cardstock' | 'standard';
+
+interface PaperSizeInfo {
+  label: string;
+  dimensions: string;
+  widthIn: number;
+  heightIn: number;
+  description: string;
+}
+
+interface PaperTypeInfo {
+  label: string;
+  description: string;
+  bestFor: string;
+  weight: string;
+}
+
+const PAPER_SIZES: Record<PaperSize, PaperSizeInfo> = {
+  letter: { label: 'US Letter', dimensions: '8.5" × 11"', widthIn: 11, heightIn: 8.5, description: 'Standard US paper — most common for brochures' },
+  legal: { label: 'US Legal', dimensions: '8.5" × 14"', widthIn: 14, heightIn: 8.5, description: 'Taller panels — great for detailed content' },
+  a4: { label: 'A4 (International)', dimensions: '8.27" × 11.69"', widthIn: 11.69, heightIn: 8.27, description: 'International standard — slightly narrower than Letter' },
+  tabloid: { label: 'Tabloid / Ledger', dimensions: '11" × 17"', widthIn: 17, heightIn: 11, description: 'Large format — impressive, high-impact brochures' },
+  a3: { label: 'A3 (International)', dimensions: '11.69" × 16.54"', widthIn: 16.54, heightIn: 11.69, description: 'Large international format — similar to Tabloid' },
+  a5: { label: 'A5 (Half Letter)', dimensions: '5.83" × 8.27"', widthIn: 8.27, heightIn: 5.83, description: 'Compact — perfect for handouts and mailers' },
+};
+
+const PAPER_TYPES: Record<PaperType, PaperTypeInfo> = {
+  glossy: { label: 'Glossy / Coated', description: 'Shiny finish with vibrant colors', bestFor: 'Photo-heavy brochures, premium marketing', weight: '100lb / 148gsm' },
+  matte: { label: 'Matte / Silk', description: 'Smooth, non-reflective finish', bestFor: 'Professional services, easy to read', weight: '100lb / 148gsm' },
+  cardstock: { label: 'Card Stock', description: 'Thick, sturdy paper', bestFor: 'Durable handouts, menus, postcards', weight: '110lb / 300gsm' },
+  standard: { label: 'Standard Paper', description: 'Regular weight paper', bestFor: 'Budget-friendly high-volume prints', weight: '60lb / 90gsm' },
+};
+
+const FORMAT_INFO: Record<BrochureFormat, { label: string; panels: number; outsideCount: number; insideCount: number; description: string }> = {
+  'tri-fold': { label: 'Tri-Fold (3 Panels)', panels: 6, outsideCount: 3, insideCount: 3, description: '6 panels total — 3 outside + 3 inside. The classic brochure format.' },
+  'bi-fold': { label: 'Bi-Fold (2 Panels)', panels: 4, outsideCount: 2, insideCount: 2, description: '4 panels total — 2 outside + 2 inside. Clean, simple layout.' },
+  'single-page': { label: 'Single Page (Flyer)', panels: 2, outsideCount: 1, insideCount: 1, description: '2 sides — front and back. Perfect for flyers and one-sheets.' },
+};
+
 interface BrochureBuilderProps {
   onClose?: () => void;
 }
@@ -45,11 +93,16 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
   const [editData, setEditData] = useState<BrochureData | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeSide, setActiveSide] = useState<'outside' | 'inside'>('outside');
+  const [format, setFormat] = useState<BrochureFormat>('tri-fold');
+  const [paperSize, setPaperSize] = useState<PaperSize>('letter');
+  const [paperType, setPaperType] = useState<PaperType>('glossy');
 
   const generateMutation = useMutation({
     mutationFn: async (userPrompt: string) => {
       const res = await apiRequest("/api/ai-ads/generate-brochure", "POST", {
         prompt: userPrompt,
+        format,
+        paperSize,
       });
       return res;
     },
@@ -57,17 +110,19 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       if (data.success && data.brochure) {
         const b = data.brochure;
         if (b.panels && !b.outsidePanels) {
-          b.outsidePanels = b.panels.slice(0, 3);
-          b.insidePanels = b.panels.slice(3, 6);
-          while (b.outsidePanels.length < 3) b.outsidePanels.push({ title: '', body: [], highlights: [] });
-          while (b.insidePanels.length < 3) b.insidePanels.push({ title: '', body: [], highlights: [] });
+          const fmtInfo = FORMAT_INFO[format];
+          b.outsidePanels = b.panels.slice(0, fmtInfo.outsideCount);
+          b.insidePanels = b.panels.slice(fmtInfo.outsideCount, fmtInfo.panels);
+          while (b.outsidePanels.length < fmtInfo.outsideCount) b.outsidePanels.push({ title: '', body: [], highlights: [] });
+          while (b.insidePanels.length < fmtInfo.insideCount) b.insidePanels.push({ title: '', body: [], highlights: [] });
           delete b.panels;
         }
         setBrochureData(b);
         setEditData(null);
         setIsEditing(false);
         setActiveSide('outside');
-        toast({ title: "Brochure Ready!", description: "Your professional tri-fold brochure has been generated with both outside and inside panels." });
+        const formatLabel = FORMAT_INFO[format].label;
+        toast({ title: "Brochure Ready!", description: `Your professional ${formatLabel} brochure has been generated with both sides.` });
       }
     },
     onError: (error: any) => {
@@ -108,7 +163,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       const response = await fetch('/api/ai-ads/brochure-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brochureData }),
+        body: JSON.stringify({ brochureData, format, paperSize }),
       });
 
       if (!response.ok) {
@@ -120,19 +175,25 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `brochure-${Date.now()}.pdf`;
+      const sizeLabel = PAPER_SIZES[paperSize].label.replace(/\s/g, '-');
+      a.download = `brochure-${format}-${sizeLabel}-${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast({ title: "Professional PDF Downloaded!", description: "2-page tri-fold PDF generated — Page 1: Outside, Page 2: Inside. Ready for double-sided printing." });
+      const sizeInfo = PAPER_SIZES[paperSize];
+      const typeInfo = PAPER_TYPES[paperType];
+      toast({
+        title: "Print-Ready PDF Downloaded!",
+        description: `${FORMAT_INFO[format].label} on ${sizeInfo.label} (${sizeInfo.dimensions}). Print on ${typeInfo.label} for best results.`
+      });
     } catch (err: any) {
       console.error('PDF generation error:', err);
       toast({ title: "Download failed", description: err.message || "Try again", variant: "destructive" });
     }
     setIsDownloading(false);
-  }, [brochureData, toast]);
+  }, [brochureData, format, paperSize, paperType, toast]);
 
   const data = isEditing ? editData : brochureData;
   const currentPanels = data ? (activeSide === 'outside' ? data.outsidePanels : data.insidePanels) : [];
@@ -144,10 +205,20 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
     inside_left: 'Inside Left',
     inside_center: 'Inside Center',
     inside_right: 'Inside Right',
+    front: 'Front',
+    back: 'Back',
+    left_panel: 'Left Panel',
+    right_panel: 'Right Panel',
   };
 
-  const renderPanel = (panel: BrochurePanel, index: number, isFront: boolean) => {
+  const panelCountForSide = (side: 'outside' | 'inside') => {
+    const info = FORMAT_INFO[format];
+    return side === 'outside' ? info.outsideCount : info.insideCount;
+  };
+
+  const renderPanel = (panel: BrochurePanel, index: number, isFront: boolean, totalPanelsInRow: number) => {
     const accentColor = data?.accentColor || '#D4FF00';
+    const panelWidth = `${100 / totalPanelsInRow}%`;
 
     if (isFront) {
       return (
@@ -155,7 +226,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
           key={index}
           className="brochure-panel relative overflow-hidden"
           style={{
-            width: `${100 / 3}%`,
+            width: panelWidth,
             minHeight: '480px',
             backgroundColor: '#0a0a0a',
           }}
@@ -216,7 +287,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
         key={index}
         className="brochure-panel relative overflow-hidden"
         style={{
-          width: `${100 / 3}%`,
+          width: panelWidth,
           minHeight: '480px',
           backgroundColor: '#0a0a0a',
         }}
@@ -280,6 +351,34 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
     );
   };
 
+  const getOutsideSideLabel = () => {
+    if (format === 'tri-fold') return 'Outside (Front Cover, Back, Flap)';
+    if (format === 'bi-fold') return 'Outside (Front Cover, Back Cover)';
+    return 'Front Side';
+  };
+
+  const getInsideSideLabel = () => {
+    if (format === 'tri-fold') return 'Inside (3 Content Panels)';
+    if (format === 'bi-fold') return 'Inside (2 Content Panels)';
+    return 'Back Side';
+  };
+
+  const getPreviewLabel = () => {
+    if (format === 'tri-fold') {
+      return activeSide === 'outside'
+        ? 'Outside Preview — Flap | Back Cover | Front Cover (left to right as printed)'
+        : 'Inside Preview — Inside Left | Inside Center | Inside Right (as seen when opened)';
+    }
+    if (format === 'bi-fold') {
+      return activeSide === 'outside'
+        ? 'Outside Preview — Back Cover | Front Cover (left to right as printed)'
+        : 'Inside Preview — Inside Left | Inside Right (as seen when opened)';
+    }
+    return activeSide === 'outside'
+      ? 'Front Side Preview'
+      : 'Back Side Preview';
+  };
+
   return (
     <div className="space-y-6">
       {!brochureData && (
@@ -287,15 +386,89 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FileText className="w-6 h-6 text-indigo-600" />
-              <span className="text-indigo-600">Professional Tri-Fold Brochure Builder</span>
+              <span className="text-indigo-600">Professional Brochure Builder</span>
             </CardTitle>
-            <p className="text-sm text-slate-500">AI generates a real 2-sided tri-fold brochure — outside (front cover, back cover, flap) + inside (3 content panels). Print-ready PDF with WeasyPrint.</p>
+            <p className="text-sm text-slate-500">Top-of-the-line marketing engine — AI generates print-ready brochures in any format, on any paper size. Both sides printed, professional PDF output.</p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-indigo-500" />
+                  Brochure Format
+                </label>
+                <Select value={format} onValueChange={(v) => setFormat(v as BrochureFormat)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(FORMAT_INFO).map(([key, info]) => (
+                      <SelectItem key={key} value={key}>{info.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">{FORMAT_INFO[format].description}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Ruler className="w-4 h-4 text-indigo-500" />
+                  Paper Size
+                </label>
+                <Select value={paperSize} onValueChange={(v) => setPaperSize(v as PaperSize)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PAPER_SIZES).map(([key, info]) => (
+                      <SelectItem key={key} value={key}>
+                        {info.label} — {info.dimensions}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">{PAPER_SIZES[paperSize].description}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Printer className="w-4 h-4 text-indigo-500" />
+                  Paper Type (for printing)
+                </label>
+                <Select value={paperType} onValueChange={(v) => setPaperType(v as PaperType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PAPER_TYPES).map(([key, info]) => (
+                      <SelectItem key={key} value={key}>{info.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">{PAPER_TYPES[paperType].bestFor}</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-lg p-3 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-start gap-2">
+                <Printer className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Print Guide</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    Your PDF will be sized for <strong>{PAPER_SIZES[paperSize].label} ({PAPER_SIZES[paperSize].dimensions})</strong> in landscape orientation.
+                    {format !== 'single-page' && ' Both sides will be printed — set your printer to double-sided/duplex printing.'}
+                    {' '}For best results, use <strong>{PAPER_TYPES[paperType].label} ({PAPER_TYPES[paperType].weight})</strong>.
+                    {format === 'tri-fold' && ' After printing, fold into thirds — front cover panel will be on the right.'}
+                    {format === 'bi-fold' && ' After printing, fold in half — front cover will be visible on the outside.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe your business and what you want on the brochure. Include: company name, phone number, website, services offered, certifications, tagline. The AI will organize your content into 6 panels — 3 outside + 3 inside."
+              placeholder={`Describe your business and what you want on the ${FORMAT_INFO[format].label.toLowerCase()} brochure. Include: company name, phone number, website, services offered, certifications, tagline. The AI will organize your content into ${FORMAT_INFO[format].panels} panels.`}
               className="min-h-[140px] resize-none text-base"
             />
 
@@ -305,9 +478,9 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-3 text-lg"
             >
               {generateMutation.isPending ? (
-                <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Generating Tri-Fold Brochure...</>
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Generating {FORMAT_INFO[format].label} Brochure...</>
               ) : (
-                <><Wand2 className="w-5 h-5 mr-2" />Build My Tri-Fold Brochure</>
+                <><Wand2 className="w-5 h-5 mr-2" />Build My {FORMAT_INFO[format].label} Brochure</>
               )}
             </Button>
 
@@ -338,8 +511,8 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin" />
               <Wand2 className="w-8 h-8 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Building your tri-fold brochure...</h3>
-            <p className="text-slate-500">AI is generating 6 panels (outside + inside) with a hero image. This takes about 20-30 seconds.</p>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Building your {FORMAT_INFO[format].label.toLowerCase()} brochure...</h3>
+            <p className="text-slate-500">AI is generating {FORMAT_INFO[format].panels} panels on {PAPER_SIZES[paperSize].label} with a hero image. This takes about 20-30 seconds.</p>
           </CardContent>
         </Card>
       )}
@@ -347,9 +520,12 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       {data && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-green-600 text-white"><CheckCircle2 className="w-3 h-3 mr-1" />2-Sided Tri-Fold</Badge>
-              <Badge variant="outline">6 Panels — Outside + Inside</Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-green-600 text-white"><CheckCircle2 className="w-3 h-3 mr-1" />2-Sided {FORMAT_INFO[format].label}</Badge>
+              <Badge variant="outline">{FORMAT_INFO[format].panels} Panels — {PAPER_SIZES[paperSize].label}</Badge>
+              <Badge variant="outline" className="text-indigo-600 border-indigo-300 dark:border-indigo-700">
+                <Printer className="w-3 h-3 mr-1" />{PAPER_TYPES[paperType].label}
+              </Badge>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {isEditing ? (
@@ -386,7 +562,6 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             </div>
           </div>
 
-          {/* Side Toggle */}
           <div className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-2">
             <Button
               size="sm"
@@ -394,7 +569,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               onClick={() => setActiveSide('outside')}
               className={activeSide === 'outside' ? 'bg-indigo-600 text-white' : ''}
             >
-              Outside (Front Cover, Back, Flap)
+              {getOutsideSideLabel()}
             </Button>
             <FlipHorizontal className="w-4 h-4 text-slate-400" />
             <Button
@@ -403,11 +578,10 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               onClick={() => setActiveSide('inside')}
               className={activeSide === 'inside' ? 'bg-indigo-600 text-white' : ''}
             >
-              Inside (3 Content Panels)
+              {getInsideSideLabel()}
             </Button>
           </div>
 
-          {/* Editing Section */}
           {isEditing && editData && (
             <Card className="border-2 border-yellow-300 dark:border-yellow-700 bg-yellow-50/50 dark:bg-yellow-950/20">
               <CardHeader className="pb-2">
@@ -486,44 +660,51 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             </Card>
           )}
 
-          {/* Brochure Preview */}
           <div className="bg-slate-900 rounded-xl p-2 overflow-x-auto shadow-2xl">
             <div className="text-center text-xs text-slate-400 mb-2 flex items-center justify-center gap-2">
               <Eye className="w-3 h-3" />
-              {activeSide === 'outside'
-                ? 'Outside Preview — Flap | Back Cover | Front Cover (left to right as printed)'
-                : 'Inside Preview — Inside Left | Inside Center | Inside Right (as seen when opened)'
-              }
+              {getPreviewLabel()}
             </div>
-            <div className="flex min-w-[900px]" style={{ fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif' }}>
+            <div className="flex min-w-[700px]" style={{ fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif' }}>
               {activeSide === 'outside' ? (
                 <>
-                  {/* Outside print order: flap (left) | back (center) | front (right) */}
                   {(() => {
                     const outsideP = data.outsidePanels || [];
-                    const front = outsideP.find(p => p.position === 'front_cover') || outsideP[0] || { title: '', body: [] };
-                    const back = outsideP.find(p => p.position === 'back_cover') || outsideP[1] || { title: '', body: [] };
-                    const flap = outsideP.find(p => p.position === 'inside_flap') || outsideP[2] || { title: '', body: [] };
-                    return (
-                      <>
-                        {renderPanel(flap, 0, false)}
-                        {renderPanel(back, 1, false)}
-                        {renderPanel(front, 2, true)}
-                      </>
-                    );
+                    if (format === 'tri-fold') {
+                      const front = outsideP.find(p => p.position === 'front_cover') || outsideP[0] || { title: '', body: [] };
+                      const back = outsideP.find(p => p.position === 'back_cover') || outsideP[1] || { title: '', body: [] };
+                      const flap = outsideP.find(p => p.position === 'inside_flap') || outsideP[2] || { title: '', body: [] };
+                      return (
+                        <>
+                          {renderPanel(flap, 0, false, 3)}
+                          {renderPanel(back, 1, false, 3)}
+                          {renderPanel(front, 2, true, 3)}
+                        </>
+                      );
+                    }
+                    if (format === 'bi-fold') {
+                      const front = outsideP.find(p => p.position === 'front_cover' || p.position === 'front') || outsideP[0] || { title: '', body: [] };
+                      const back = outsideP.find(p => p.position === 'back_cover' || p.position === 'back') || outsideP[1] || { title: '', body: [] };
+                      return (
+                        <>
+                          {renderPanel(back, 0, false, 2)}
+                          {renderPanel(front, 1, true, 2)}
+                        </>
+                      );
+                    }
+                    const front = outsideP[0] || { title: '', body: [] };
+                    return renderPanel(front, 0, true, 1);
                   })()}
                 </>
               ) : (
                 <>
-                  {(data.insidePanels || []).map((panel, i) => renderPanel(panel, i, false))}
+                  {(data.insidePanels || []).map((panel, i) => renderPanel(panel, i, false, panelCountForSide('inside')))}
                 </>
               )}
             </div>
             <div className="text-center text-[10px] text-slate-500 mt-2">
-              {activeSide === 'outside'
-                ? '← Fold lines will appear on the printed PDF. The front cover is on the right.'
-                : '← This side faces the reader when the brochure is opened flat.'
-              }
+              {PAPER_SIZES[paperSize].label} ({PAPER_SIZES[paperSize].dimensions}) — {PAPER_TYPES[paperType].label}
+              {format !== 'single-page' && ' — Set printer to double-sided / duplex'}
             </div>
           </div>
         </>

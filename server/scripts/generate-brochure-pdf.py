@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Professional 2-sided tri-fold brochure PDF generator using WeasyPrint.
-Produces a 2-page PDF: Page 1 = Outside (front cover, back cover, flap), Page 2 = Inside (3 inner panels).
+Professional multi-format brochure PDF generator using WeasyPrint.
+Supports tri-fold (6 panels), bi-fold (4 panels), and single-page (2 panels)
+on multiple paper sizes (letter, legal, A4, tabloid, A3, A5).
 Takes JSON brochure data from stdin, outputs PDF to specified file.
 """
 
@@ -21,6 +22,15 @@ ALLOWED_IMAGE_HOSTS = {
     'images.openai.com',
 }
 MAX_IMAGE_SIZE = 20 * 1024 * 1024
+
+PAPER_SIZES = {
+    'letter':  {'w': 11,    'h': 8.5,   'unit': 'in'},
+    'legal':   {'w': 14,    'h': 8.5,   'unit': 'in'},
+    'a4':      {'w': 11.69, 'h': 8.27,  'unit': 'in'},
+    'tabloid': {'w': 17,    'h': 11,    'unit': 'in'},
+    'a3':      {'w': 16.54, 'h': 11.69, 'unit': 'in'},
+    'a5':      {'w': 8.27,  'h': 5.83,  'unit': 'in'},
+}
 
 def is_safe_url(url):
     try:
@@ -59,25 +69,29 @@ def fetch_image_as_data_uri(url):
             if len(data) > MAX_IMAGE_SIZE:
                 return ""
             content_type = resp.headers.get('Content-Type', 'image/jpeg')
-            b64 = base64.b64encode(data).decode('utf-8')
+            b64 = base64.b64encode(data).decode('ascii')
             return f"data:{content_type};base64,{b64}"
     except Exception as e:
         sys.stderr.write(f"Image fetch failed: {e}\n")
         return ""
 
 def escape_html(text):
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    if not text:
+        return ''
+    return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
-def render_body_items(body_lines):
-    items = []
-    for line in body_lines:
-        stripped = line.lstrip()
-        if stripped.startswith(('\u2714', '\u2022', '-', '\u2713', '\u25ba')):
-            clean = stripped.lstrip('\u2714\u2022-\u2713\u25ba ')
-            items.append(f'<div class="check-item"><span class="ci">\u2714</span><span>{escape_html(clean)}</span></div>')
+def render_body_items(body):
+    if not body:
+        return ''
+    html = ''
+    for item in body:
+        txt = str(item)
+        if txt.startswith('✔') or txt.startswith('•') or txt.startswith('-'):
+            clean = txt.lstrip('✔•- ')
+            html += f'<div class="check-item"><span class="ci">✔</span><span>{escape_html(clean)}</span></div>'
         else:
-            items.append(f'<p class="body-text">{escape_html(line)}</p>')
-    return '\n'.join(items)
+            html += f'<p class="body-text">{escape_html(txt)}</p>'
+    return html
 
 def render_highlights(highlights):
     if not highlights:
@@ -136,6 +150,12 @@ def generate_brochure_html(data):
     credentials = data.get('credentials', [])
     accent = data.get('accentColor', '#D4FF00')
     hero_url = data.get('heroImageUrl', '')
+    brochure_format = data.get('_format', 'tri-fold')
+    paper_size_key = data.get('_paperSize', 'letter')
+
+    paper = PAPER_SIZES.get(paper_size_key, PAPER_SIZES['letter'])
+    page_w = paper['w']
+    page_h = paper['h']
 
     outside_panels = data.get('outsidePanels', [])
     inside_panels = data.get('insidePanels', [])
@@ -143,12 +163,15 @@ def generate_brochure_html(data):
     if not outside_panels and not inside_panels:
         old_panels = data.get('panels', [])
         if old_panels:
-            outside_panels = old_panels[:3] if len(old_panels) >= 3 else old_panels
-            inside_panels = old_panels[3:6] if len(old_panels) > 3 else []
-            while len(outside_panels) < 3:
-                outside_panels.append({'title': '', 'body': [], 'highlights': []})
-            while len(inside_panels) < 3:
-                inside_panels.append({'title': '', 'body': [], 'highlights': []})
+            if brochure_format == 'bi-fold':
+                outside_panels = old_panels[:2] if len(old_panels) >= 2 else old_panels
+                inside_panels = old_panels[2:4] if len(old_panels) > 2 else []
+            elif brochure_format == 'single-page':
+                outside_panels = old_panels[:1] if len(old_panels) >= 1 else old_panels
+                inside_panels = old_panels[1:2] if len(old_panels) > 1 else []
+            else:
+                outside_panels = old_panels[:3] if len(old_panels) >= 3 else old_panels
+                inside_panels = old_panels[3:6] if len(old_panels) > 3 else []
 
     hero_data_uri = fetch_image_as_data_uri(hero_url) if hero_url else ''
 
@@ -158,9 +181,15 @@ def generate_brochure_html(data):
     if hero_data_uri:
         bg_css = f'background-image: url("{hero_data_uri}"); background-size: cover; background-position: center;'
 
-    # Outside: print order is [inside_flap, back_cover, front_cover] left-to-right
-    # When folded: front_cover is visible on the right, flap tucks inside
-    outside_order = []
+    if brochure_format == 'tri-fold':
+        return generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+    elif brochure_format == 'bi-fold':
+        return generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+    else:
+        return generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+
+
+def generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
     front_panel = None
     back_panel = None
     flap_panel = None
@@ -179,14 +208,21 @@ def generate_brochure_html(data):
     if not flap_panel:
         flap_panel = outside_panels[2] if len(outside_panels) > 2 else {'title': '', 'body': []}
 
-    # Print layout outside: flap (left, narrower) | back (center) | front (right)
+    flap_w = round(page_w * 0.318, 4)
+    main_w = round((page_w - flap_w) / 2, 4)
+    inside_w = round(page_w / 3, 4)
+
+    fold1 = round(flap_w, 4)
+    fold2 = round(flap_w + main_w, 4)
+    ifold1 = round(inside_w, 4)
+    ifold2 = round(inside_w * 2, 4)
+
     outside_html = render_panel(flap_panel, accent, is_front=False, phone=phone, extra_class='flap-panel')
     outside_html += render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='back-panel')
     outside_html += render_panel(front_panel, accent, is_front=True,
                                   company=company, tagline=tagline, phone=phone,
                                   website=website, creds_html=creds_html, extra_class='front-panel-outer')
 
-    # Inside: left | center | right
     inside_html = ''
     for p in inside_panels[:3]:
         inside_html += render_panel(p, accent, is_front=False, phone=phone)
@@ -194,13 +230,142 @@ def generate_brochure_html(data):
         inside_html += '<div class="panel content-panel"></div>'
         inside_panels.append({})
 
-    html = f'''<!DOCTYPE html>
+    return build_html(accent, bg_css, page_w, page_h, f'''
+<!-- PAGE 1: OUTSIDE -->
+<div class="brochure-page outside-page">
+    <div class="bg-layer"></div>
+    <div class="fold-line" style="left: {fold1}in;"></div>
+    <div class="fold-line" style="left: {fold2}in;"></div>
+    <span class="page-label">Outside &mdash; Page 1 of 2</span>
+    <span class="side-label">&larr; Flap &nbsp;&nbsp;|&nbsp;&nbsp; Back Cover &nbsp;&nbsp;|&nbsp;&nbsp; Front Cover &rarr;</span>
+    {outside_html}
+</div>
+
+<!-- PAGE 2: INSIDE -->
+<div class="brochure-page inside-page">
+    <div class="bg-layer"></div>
+    <div class="fold-line" style="left: {ifold1}in;"></div>
+    <div class="fold-line" style="left: {ifold2}in;"></div>
+    <span class="page-label">Inside &mdash; Page 2 of 2</span>
+    <span class="side-label">&larr; Inside Left &nbsp;&nbsp;|&nbsp;&nbsp; Inside Center &nbsp;&nbsp;|&nbsp;&nbsp; Inside Right &rarr;</span>
+    {inside_html}
+</div>
+''', extra_css=f'''
+.flap-panel {{
+    width: {flap_w}in;
+}}
+.back-panel,
+.front-panel-outer {{
+    width: {main_w}in;
+}}
+.inside-page .panel {{
+    width: {inside_w}in;
+}}
+''')
+
+
+def generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
+    front_panel = None
+    back_panel = None
+    for p in outside_panels:
+        pos = p.get('position', '')
+        if pos in ('front_cover', 'front'):
+            front_panel = p
+        elif pos in ('back_cover', 'back'):
+            back_panel = p
+    if not front_panel:
+        front_panel = outside_panels[0] if len(outside_panels) > 0 else {'title': '', 'body': []}
+    if not back_panel:
+        back_panel = outside_panels[1] if len(outside_panels) > 1 else {'title': '', 'body': []}
+
+    half_w = round(page_w / 2, 4)
+    fold_pos = half_w
+
+    left_panel = None
+    right_panel = None
+    for p in inside_panels:
+        pos = p.get('position', '')
+        if pos in ('left_panel', 'inside_left'):
+            left_panel = p
+        elif pos in ('right_panel', 'inside_right'):
+            right_panel = p
+    if not left_panel:
+        left_panel = inside_panels[0] if len(inside_panels) > 0 else {'title': '', 'body': []}
+    if not right_panel:
+        right_panel = inside_panels[1] if len(inside_panels) > 1 else {'title': '', 'body': []}
+
+    outside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
+    outside_html += render_panel(front_panel, accent, is_front=True,
+                                  company=company, tagline=tagline, phone=phone,
+                                  website=website, creds_html=creds_html, extra_class='half-panel')
+
+    inside_html = render_panel(left_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
+    inside_html += render_panel(right_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
+
+    return build_html(accent, bg_css, page_w, page_h, f'''
+<!-- PAGE 1: OUTSIDE -->
+<div class="brochure-page outside-page">
+    <div class="bg-layer"></div>
+    <div class="fold-line" style="left: {fold_pos}in;"></div>
+    <span class="page-label">Outside &mdash; Page 1 of 2</span>
+    <span class="side-label">&larr; Back Cover &nbsp;&nbsp;|&nbsp;&nbsp; Front Cover &rarr;</span>
+    {outside_html}
+</div>
+
+<!-- PAGE 2: INSIDE -->
+<div class="brochure-page inside-page">
+    <div class="bg-layer"></div>
+    <div class="fold-line" style="left: {fold_pos}in;"></div>
+    <span class="page-label">Inside &mdash; Page 2 of 2</span>
+    <span class="side-label">&larr; Inside Left &nbsp;&nbsp;|&nbsp;&nbsp; Inside Right &rarr;</span>
+    {inside_html}
+</div>
+''', extra_css=f'''
+.half-panel {{
+    width: {half_w}in;
+}}
+''')
+
+
+def generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
+    front_panel = outside_panels[0] if len(outside_panels) > 0 else {'title': '', 'body': []}
+    back_panel = inside_panels[0] if len(inside_panels) > 0 else {'title': '', 'body': []}
+
+    outside_html = render_panel(front_panel, accent, is_front=True,
+                                  company=company, tagline=tagline, phone=phone,
+                                  website=website, creds_html=creds_html, extra_class='full-panel')
+
+    inside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='full-panel')
+
+    return build_html(accent, bg_css, page_w, page_h, f'''
+<!-- PAGE 1: FRONT -->
+<div class="brochure-page outside-page">
+    <div class="bg-layer"></div>
+    <span class="page-label">Front &mdash; Page 1 of 2</span>
+    {outside_html}
+</div>
+
+<!-- PAGE 2: BACK -->
+<div class="brochure-page inside-page">
+    <div class="bg-layer"></div>
+    <span class="page-label">Back &mdash; Page 2 of 2</span>
+    {inside_html}
+</div>
+''', extra_css=f'''
+.full-panel {{
+    width: {page_w}in;
+}}
+''')
+
+
+def build_html(accent, bg_css, page_w, page_h, body_html, extra_css=''):
+    return f'''<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <style>
 @page {{
-    size: 11in 8.5in landscape;
+    size: {page_w}in {page_h}in landscape;
     margin: 0;
 }}
 
@@ -230,8 +395,8 @@ body {{
 }}
 
 .brochure-page {{
-    width: 11in;
-    height: 8.5in;
+    width: {page_w}in;
+    height: {page_h}in;
     display: flex;
     position: relative;
     overflow: hidden;
@@ -246,7 +411,6 @@ body {{
     opacity: 0.12;
 }}
 
-/* Fold guides */
 .fold-line {{
     position: absolute;
     top: 0;
@@ -255,27 +419,11 @@ body {{
     background: rgba(255,255,255,0.08);
     z-index: 5;
 }}
-.fold-1 {{ left: 3.625in; }}
-.fold-2 {{ left: 7.3125in; }}
-.fold-inside-1 {{ left: 3.6875in; }}
-.fold-inside-2 {{ left: 7.375in; }}
 
-/* Panel sizing for outside: flap is slightly narrower */
-.flap-panel {{
-    width: 3.5in;
-}}
-.back-panel,
-.front-panel-outer {{
-    width: 3.75in;
-}}
-
-/* Panel sizing for inside: equal thirds */
-.inside-page .panel {{
-    width: 3.6667in;
-}}
+{extra_css}
 
 .panel {{
-    height: 8.5in;
+    height: {page_h}in;
     position: relative;
     z-index: 2;
     padding: 0.45in 0.35in;
@@ -289,7 +437,6 @@ body {{
     border-right: none;
 }}
 
-/* Front Panel */
 .front-panel {{
     background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.95) 100%);
     text-align: center;
@@ -365,7 +512,6 @@ body {{
     color: {accent};
 }}
 
-/* Content Panels */
 .content-panel {{
     background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.96) 100%);
 }}
@@ -459,7 +605,6 @@ body {{
     color: {accent};
 }}
 
-/* Side label */
 .side-label {{
     position: absolute;
     bottom: 8px;
@@ -473,32 +618,9 @@ body {{
 </style>
 </head>
 <body>
-
-<!-- PAGE 1: OUTSIDE (what you see when brochure is folded) -->
-<!-- Print order left-to-right: Inside Flap | Back Cover | Front Cover -->
-<div class="brochure-page outside-page">
-    <div class="bg-layer"></div>
-    <div class="fold-line fold-1"></div>
-    <div class="fold-line fold-2"></div>
-    <span class="page-label">Outside &mdash; Page 1 of 2</span>
-    <span class="side-label">&larr; Flap &nbsp;&nbsp;|&nbsp;&nbsp; Back Cover &nbsp;&nbsp;|&nbsp;&nbsp; Front Cover &rarr;</span>
-    {outside_html}
-</div>
-
-<!-- PAGE 2: INSIDE (what you see when brochure is opened flat) -->
-<div class="brochure-page inside-page">
-    <div class="bg-layer"></div>
-    <div class="fold-line fold-inside-1"></div>
-    <div class="fold-line fold-inside-2"></div>
-    <span class="page-label">Inside &mdash; Page 2 of 2</span>
-    <span class="side-label">&larr; Inside Left &nbsp;&nbsp;|&nbsp;&nbsp; Inside Center &nbsp;&nbsp;|&nbsp;&nbsp; Inside Right &rarr;</span>
-    {inside_html}
-</div>
-
+{body_html}
 </body>
 </html>'''
-
-    return html
 
 
 def main():

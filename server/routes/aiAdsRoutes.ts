@@ -174,12 +174,16 @@ export function registerAIAdsRoutes(app: Express) {
 
   app.post('/api/ai-ads/generate-brochure', async (req: Request, res: Response) => {
     try {
-      const { prompt } = req.body;
+      const { prompt, format, paperSize } = req.body;
       if (!prompt) {
         return res.status(400).json({ error: 'Describe your business and brochure needs' });
       }
+      const validFormats = ['tri-fold', 'bi-fold', 'single-page'];
+      const validSizes = ['letter', 'legal', 'a4', 'tabloid', 'a3', 'a5'];
+      const safeFormat = validFormats.includes(format) ? format : 'tri-fold';
+      const safePaperSize = validSizes.includes(paperSize) ? paperSize : 'letter';
 
-      const brochure = await aiAdsAssistant.generateBrochure(prompt);
+      const brochure = await aiAdsAssistant.generateBrochure(prompt, safeFormat, safePaperSize);
       res.json({ success: true, brochure });
     } catch (error) {
       console.error('Error generating brochure:', error);
@@ -196,7 +200,7 @@ export function registerAIAdsRoutes(app: Express) {
     };
 
     try {
-      const { brochureData } = req.body;
+      const { brochureData, format: reqFormat, paperSize: reqPaperSize } = req.body;
       const hasNewFormat = brochureData?.outsidePanels && brochureData?.insidePanels;
       const hasOldFormat = brochureData?.panels && Array.isArray(brochureData.panels);
       if (!brochureData || (!hasNewFormat && !hasOldFormat)) {
@@ -209,7 +213,12 @@ export function registerAIAdsRoutes(app: Express) {
         return res.status(400).json({ error: 'Maximum 12 panels allowed' });
       }
 
-      const inputJson = JSON.stringify(brochureData);
+      const validFormats = ['tri-fold', 'bi-fold', 'single-page'];
+      const validSizes = ['letter', 'legal', 'a4', 'tabloid', 'a3', 'a5'];
+      const safeFormat = validFormats.includes(reqFormat) ? reqFormat : 'tri-fold';
+      const safePaperSize = validSizes.includes(reqPaperSize) ? reqPaperSize : 'letter';
+
+      const inputJson = JSON.stringify({ ...brochureData, _format: safeFormat, _paperSize: safePaperSize });
       if (inputJson.length > 5 * 1024 * 1024) {
         return res.status(400).json({ error: 'Brochure data too large' });
       }

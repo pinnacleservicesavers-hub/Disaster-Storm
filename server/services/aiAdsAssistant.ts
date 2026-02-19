@@ -572,7 +572,7 @@ ${noTextRule}`;
       return response.data[0]?.url || '';
     }
   }
-  async generateBrochure(prompt: string): Promise<any> {
+  async generateBrochure(prompt: string, format: string = 'tri-fold', paperSize: string = 'letter'): Promise<any> {
     const systemPrompt = `You are an expert brochure designer and copywriter. You create professional, typo-free brochure content for businesses. Your job is to extract the business information from the user's description and organize it into clean brochure panels.
 
 CRITICAL QUALITY RULES:
@@ -583,11 +583,137 @@ CRITICAL QUALITY RULES:
 
 You must respond with ONLY valid JSON (no markdown, no code fences).`;
 
-    const userPrompt = `Create professional TRI-FOLD brochure content from this description:
+    let userPrompt = '';
+
+    if (format === 'bi-fold') {
+      userPrompt = `Create professional BI-FOLD brochure content from this description:
 
 "${prompt}"
 
-A real tri-fold brochure has TWO SIDES printed on one sheet of paper (11x8.5 inches):
+A bi-fold brochure is folded in HALF, creating 4 panels printed on TWO SIDES of one sheet:
+
+OUTSIDE (Page 1 — what you see when the brochure is folded):
+  - Panel 1: FRONT COVER (right half) — the first thing people see. Company name, tagline, hero visual area, phone number.
+  - Panel 2: BACK COVER (left half) — contact info, credentials, social media, QR code placeholder.
+
+INSIDE (Page 2 — what you see when opened):
+  - Panel 3: LEFT PANEL — first content panel (e.g., About Us, Services overview).
+  - Panel 4: RIGHT PANEL — detailed services, testimonials, or call-to-action.
+
+Generate a JSON object with this exact structure:
+{
+  "companyName": "The company name",
+  "tagline": "The company tagline or slogan",
+  "phone": "The phone number provided",
+  "website": "The website provided",
+  "credentials": ["credential1", "credential2"],
+  "accentColor": "#D4FF00",
+  "outsidePanels": [
+    {
+      "position": "front_cover",
+      "title": "COMPANY NAME",
+      "subtitle": "tagline",
+      "body": ["Professional description line"],
+      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY"],
+      "footer": ""
+    },
+    {
+      "position": "back_cover",
+      "title": "CONTACT US",
+      "subtitle": "",
+      "body": ["Phone: 800-555-1234", "Website: company.com", "Email: info@company.com"],
+      "highlights": ["Licensed • Insured • Bonded"],
+      "footer": "Serving the community since 2010"
+    }
+  ],
+  "insidePanels": [
+    {
+      "position": "left_panel",
+      "title": "ABOUT US",
+      "subtitle": "Our Story",
+      "body": ["Description of company", "✔ Key service 1", "✔ Key service 2"],
+      "highlights": [],
+      "footer": ""
+    },
+    {
+      "position": "right_panel",
+      "title": "OUR SERVICES",
+      "subtitle": "What We Do",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "highlights": ["CALL TODAY"],
+      "footer": ""
+    }
+  ]
+}
+
+Rules:
+- Create EXACTLY 2 outsidePanels and EXACTLY 2 insidePanels (4 total for a bi-fold)
+- Each panel gets HALF the page — more space for content than tri-fold
+- Front cover: company name prominent, tagline, key credentials, phone
+- Back cover: full contact details, credentials, service area
+- Inside panels: organize ALL services/content across both panels with rich detail
+- Use ✔ prefix for service/feature lists, • for sub-items
+- Keep panel titles SHORT and POWERFUL (3-5 words max)
+- Include ALL services, certifications, and details the user mentioned
+- Do NOT invent info the user did not mention
+- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+    } else if (format === 'single-page') {
+      userPrompt = `Create professional SINGLE-PAGE FLYER content from this description:
+
+"${prompt}"
+
+A single-page flyer/one-sheet has TWO SIDES:
+
+FRONT SIDE:
+  - The main visual impact side. Company name, tagline, key services, call to action, phone number.
+
+BACK SIDE:
+  - Detailed information: full service list, testimonials, credentials, contact details, map area.
+
+Generate a JSON object with this exact structure:
+{
+  "companyName": "The company name",
+  "tagline": "The company tagline or slogan",
+  "phone": "The phone number provided",
+  "website": "The website provided",
+  "credentials": ["credential1", "credential2"],
+  "accentColor": "#D4FF00",
+  "outsidePanels": [
+    {
+      "position": "front",
+      "title": "COMPANY NAME",
+      "subtitle": "tagline",
+      "body": ["Key service highlight", "✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY", "CALL NOW"],
+      "footer": ""
+    }
+  ],
+  "insidePanels": [
+    {
+      "position": "back",
+      "title": "FULL SERVICE DETAILS",
+      "subtitle": "Everything We Offer",
+      "body": ["✔ Service 1 with description", "✔ Service 2 with description", "✔ Service 3", "Phone: 800-555-1234", "Website: company.com"],
+      "highlights": ["Licensed • Insured • Bonded"],
+      "footer": "Serving the community since 2010"
+    }
+  ]
+}
+
+Rules:
+- Create EXACTLY 1 outsidePanel (front) and EXACTLY 1 insidePanel (back) — 2 total
+- Front: maximum visual impact — company name huge, tagline, top services, big CTA
+- Back: detailed service list, testimonials, full credentials, complete contact info
+- Use ✔ prefix for lists, • for sub-items
+- Include ALL services, certifications, and details the user mentioned
+- Do NOT invent info the user did not mention
+- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+    } else {
+      userPrompt = `Create professional TRI-FOLD brochure content from this description:
+
+"${prompt}"
+
+A real tri-fold brochure has TWO SIDES printed on one sheet of paper:
 
 OUTSIDE (Page 1 — what you see when the brochure is folded):
   - Panel 1: FRONT COVER (right third) — the first thing people see. Company name, tagline, hero visual area, phone number.
@@ -673,6 +799,7 @@ Rules:
 - Include ALL services, certifications, and details the user mentioned
 - Do NOT invent services, phone numbers, or certifications the user did not mention
 - If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+    }
 
     const response = await this.openai.chat.completions.create({
       model: 'gpt-4',
@@ -701,24 +828,46 @@ Rules:
       try {
         brochureData = JSON.parse(cleaned);
       } catch {
-        brochureData = {
-          companyName: 'Your Company',
-          tagline: 'Your Tagline',
-          phone: '800-000-0000',
-          website: 'yourcompany.com',
-          credentials: ['Licensed', 'Insured', 'Bonded'],
-          accentColor: '#D4FF00',
-          outsidePanels: [
-            { position: 'front_cover', title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
-            { position: 'back_cover', title: 'CONTACT US', body: ['Call us today'], highlights: [] },
-            { position: 'inside_flap', title: 'WHY CHOOSE US', body: ['✔ Quality', '✔ Reliability'], highlights: [] },
-          ],
-          insidePanels: [
-            { position: 'inside_left', title: 'ABOUT US', body: ['Our story'], highlights: [] },
-            { position: 'inside_center', title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: [] },
-            { position: 'inside_right', title: 'GET STARTED', body: ['Call for a free estimate'], highlights: ['CALL TODAY'] },
-          ],
-        };
+        if (format === 'bi-fold') {
+          brochureData = {
+            companyName: 'Your Company', tagline: 'Your Tagline', phone: '800-000-0000', website: 'yourcompany.com',
+            credentials: ['Licensed', 'Insured', 'Bonded'], accentColor: '#D4FF00',
+            outsidePanels: [
+              { position: 'front_cover', title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
+              { position: 'back_cover', title: 'CONTACT US', body: ['Call us today'], highlights: [] },
+            ],
+            insidePanels: [
+              { position: 'left_panel', title: 'ABOUT US', body: ['Our story'], highlights: [] },
+              { position: 'right_panel', title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: ['CALL TODAY'] },
+            ],
+          };
+        } else if (format === 'single-page') {
+          brochureData = {
+            companyName: 'Your Company', tagline: 'Your Tagline', phone: '800-000-0000', website: 'yourcompany.com',
+            credentials: ['Licensed', 'Insured', 'Bonded'], accentColor: '#D4FF00',
+            outsidePanels: [
+              { position: 'front', title: 'YOUR COMPANY', body: ['Professional services', '✔ Service 1', '✔ Service 2'], highlights: ['FREE ESTIMATES', 'CALL NOW'] },
+            ],
+            insidePanels: [
+              { position: 'back', title: 'FULL DETAILS', body: ['Contact us today', '✔ Service 1', '✔ Service 2'], highlights: ['Licensed • Insured • Bonded'] },
+            ],
+          };
+        } else {
+          brochureData = {
+            companyName: 'Your Company', tagline: 'Your Tagline', phone: '800-000-0000', website: 'yourcompany.com',
+            credentials: ['Licensed', 'Insured', 'Bonded'], accentColor: '#D4FF00',
+            outsidePanels: [
+              { position: 'front_cover', title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
+              { position: 'back_cover', title: 'CONTACT US', body: ['Call us today'], highlights: [] },
+              { position: 'inside_flap', title: 'WHY CHOOSE US', body: ['✔ Quality', '✔ Reliability'], highlights: [] },
+            ],
+            insidePanels: [
+              { position: 'inside_left', title: 'ABOUT US', body: ['Our story'], highlights: [] },
+              { position: 'inside_center', title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: [] },
+              { position: 'inside_right', title: 'GET STARTED', body: ['Call for a free estimate'], highlights: ['CALL TODAY'] },
+            ],
+          };
+        }
       }
     }
 
