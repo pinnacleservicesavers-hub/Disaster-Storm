@@ -168,6 +168,21 @@ export function registerAIAdsRoutes(app: Express) {
     }
   });
 
+  app.post('/api/ai-ads/generate-brochure', async (req: Request, res: Response) => {
+    try {
+      const { prompt } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ error: 'Describe your business and brochure needs' });
+      }
+
+      const brochure = await aiAdsAssistant.generateBrochure(prompt);
+      res.json({ success: true, brochure });
+    } catch (error) {
+      console.error('Error generating brochure:', error);
+      res.status(500).json({ error: 'Failed to generate brochure', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   app.post('/api/ai-ads/sound-design', async (req: Request, res: Response) => {
     try {
       const { prompt, type, voiceStyle, duration, industry, backgroundMusic } = req.body;

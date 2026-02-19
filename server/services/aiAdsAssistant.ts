@@ -572,6 +572,142 @@ ${noTextRule}`;
       return response.data[0]?.url || '';
     }
   }
+  async generateBrochure(prompt: string): Promise<any> {
+    const systemPrompt = `You are an expert brochure designer and copywriter. You create professional, typo-free brochure content for businesses. Your job is to extract the business information from the user's description and organize it into clean brochure panels.
+
+CRITICAL QUALITY RULES:
+- PERFECT SPELLING: Triple-check every word. Zero typos. This will be printed and distributed.
+- PERFECT GRAMMAR: Every sentence must be grammatically flawless.
+- USE ONLY THE INFORMATION PROVIDED: Do not invent phone numbers, websites, certifications, or services the user did not mention.
+- PROFESSIONAL TONE: Clean, authoritative, trustworthy language.
+
+You must respond with ONLY valid JSON (no markdown, no code fences).`;
+
+    const userPrompt = `Create professional brochure content from this description:
+
+"${prompt}"
+
+Generate a JSON object with this exact structure:
+{
+  "companyName": "The company name",
+  "tagline": "The company tagline or slogan",
+  "phone": "The phone number provided",
+  "website": "The website provided",
+  "credentials": ["credential1", "credential2"],
+  "accentColor": "#D4FF00",
+  "panels": [
+    {
+      "title": "FRONT PANEL TITLE",
+      "subtitle": "optional subtitle",
+      "body": ["line1", "line2"],
+      "highlights": ["FREE ESTIMATES", "highlight2"],
+      "footer": ""
+    },
+    {
+      "title": "SECOND PANEL TITLE",
+      "subtitle": "subtitle",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "highlights": ["TAGLINE"],
+      "footer": ""
+    }
+  ]
+}
+
+Rules for panels:
+- Create 4-5 panels total (front panel + 3-4 content panels)
+- Front panel: company name, tagline, credentials, contact info
+- Content panels: organize services logically (e.g., residential, commercial, emergency)
+- Use ✔ prefix for service/feature lists
+- Use • prefix for sub-items
+- Keep panel titles SHORT and POWERFUL (3-5 words max)
+- Include all services, certifications, and details the user mentioned
+- Do NOT add services or certifications the user did not mention
+- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.5,
+      max_tokens: 3000,
+    });
+
+    const content = response.choices[0].message.content || '{}';
+    let brochureData: any;
+    try {
+      brochureData = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      let cleaned = jsonMatch ? jsonMatch[0] : '{}';
+      cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+      cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+        if (ch === '\n') return '\\n';
+        if (ch === '\r') return '\\r';
+        if (ch === '\t') return '\\t';
+        return '';
+      });
+      try {
+        brochureData = JSON.parse(cleaned);
+      } catch {
+        brochureData = {
+          companyName: 'Your Company',
+          tagline: 'Your Tagline',
+          phone: '800-000-0000',
+          website: 'yourcompany.com',
+          credentials: ['Licensed', 'Insured', 'Bonded'],
+          accentColor: '#D4FF00',
+          panels: [
+            { title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
+            { title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: [] },
+          ]
+        };
+      }
+    }
+
+    try {
+      const stripTextConcepts = (p: string) => {
+        return p.replace(/\b(brochure|tri-fold|trifold|flyer|pamphlet|booklet|menu|listing|headline|heading|title|subtitle|caption|label|tagline|slogan|bullet point|bullet list|contact info|phone number|address|email|URL|website|QR code|coupon|discount code|pricing|price list|service list|testimonial quote|review text|certification badge|logo text|banner text|sign text|panel|residential|commercial|emergency)\b/gi, '')
+          .replace(/\s{2,}/g, ' ').trim();
+      };
+      const sceneDesc = stripTextConcepts(prompt);
+      const heroPrompt = `Cinematic black and white dramatic scene related to: ${sceneDesc}. Professional photojournalism style, high contrast shadows, dramatic lighting, powerful composition. This is a SINGLE HERO PHOTOGRAPH to be used as a background visual. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text — not even a single letter. Only render the photographic scene.`;
+
+      const imgResponse = await this.openai.images.generate({
+        model: 'dall-e-3',
+        prompt: heroPrompt,
+        n: 1,
+        size: '1792x1024',
+        quality: 'hd'
+      });
+      brochureData.heroImageUrl = imgResponse.data[0]?.url || '';
+    } catch (imgErr) {
+      console.error('Brochure hero image failed:', imgErr);
+      try {
+        const replitOpenai = new OpenAI({
+          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        });
+        const imgResponse = await replitOpenai.images.generate({
+          model: 'gpt-image-1',
+          prompt: `Cinematic black and white dramatic professional photograph. High contrast, dramatic lighting. No text, no words, no letters, no numbers, no logos, no signage, no watermarks. Purely visual scene only.`,
+          n: 1,
+          size: '1024x1024',
+        });
+        if (imgResponse.data[0]?.b64_json) {
+          brochureData.heroImageUrl = `data:image/png;base64,${imgResponse.data[0].b64_json}`;
+        } else if (imgResponse.data[0]?.url) {
+          brochureData.heroImageUrl = imgResponse.data[0].url;
+        }
+      } catch {
+        console.error('Fallback hero image also failed');
+      }
+    }
+
+    return brochureData;
+  }
+
   async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string; backgroundMusic?: string }): Promise<any> {
     const typeInstructions: Record<string, string> = {
       'voice_ad': `Create a complete voice-over ad with:

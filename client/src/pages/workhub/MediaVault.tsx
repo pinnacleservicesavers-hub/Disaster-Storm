@@ -27,6 +27,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import VideoAdPlayer from '@/components/VideoAdPlayer';
+import BrochureBuilder from '@/components/BrochureBuilder';
 
 interface CreativeResult {
   adCopy?: string;
@@ -692,40 +693,7 @@ export default function MediaVault() {
           </TabsContent>
 
           <TabsContent value="brochures">
-            <AICreativeStudio
-              title="AI Brochure Creator"
-              subtitle="Professional brochures, service guides, and marketing materials in seconds"
-              icon={<BookOpen className="w-6 h-6" />}
-              defaultType="full_campaign"
-              prompt={creativePrompt}
-              setPrompt={setCreativePrompt}
-              style={creativeStyle}
-              setStyle={setCreativeStyle}
-              platform={creativePlatform}
-              setPlatform={setCreativePlatform}
-              creativeType={creativeType}
-              setCreativeType={setCreativeType}
-              result={creativeResult}
-              setResult={setCreativeResult}
-              isCreating={createMutation.isPending}
-              onCreate={handleCreate}
-              onRevise={handleRevise}
-              onRegenerateImage={(p, s) => generateImageMutation.mutate({ prompt: p, style: s })}
-              isRegenerating={generateImageMutation.isPending}
-              copiedField={copiedField}
-              onCopy={copyToClipboard}
-              onImageFullscreen={() => setImageFullscreen(true)}
-              examples={[
-                "Create a luxury tri-fold brochure for a full-service home restoration company — cover panel with stunning hero image, inside panels listing all services with icons, testimonials section with 5-star reviews, financing options, before/after gallery, QR code to portfolio, contact info with map",
-                "Design a premium service menu brochure for a landscaping empire — tree removal, trimming, stump grinding, lawn care, hardscaping, irrigation, seasonal maintenance packages with Bronze/Silver/Gold/Platinum pricing tiers, team photo, certifications",
-                "Create a corporate capabilities brochure for a general contractor targeting insurance adjusters and property managers — IICRC certifications, response time guarantees, past project case studies with dollar values, fleet photos, service area map, 24/7 dispatch number",
-                "Design a stunning real estate listing brochure — full-page property photos, floor plan layout, neighborhood highlights, school ratings, comparable sales data, agent bio with headshot, virtual tour QR code, open house schedule",
-                "Create a medical practice welcome brochure — warm provider photos and bios, services offered, insurance accepted list, patient testimonials, facility tour photos, new patient checklist, portal signup instructions, emergency protocol",
-                "Design a restaurant grand opening brochure — mouth-watering food photography descriptions, chef bio, menu highlights with pricing, happy hour specials, private event booking, loyalty program, location map, social media handles",
-                "Create a political campaign brochure — candidate photo and bio, key platform positions, endorsements, community involvement history, voting record highlights, volunteer signup, donation tiers, event calendar"
-              ]}
-              color="indigo"
-            />
+            <BrochureBuilder />
           </TabsContent>
 
           <TabsContent value="campaigns">
