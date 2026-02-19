@@ -885,75 +885,131 @@ Rules:
       }
     }
 
-    try {
-      const stripTextConcepts = (p: string) => {
-        return p.replace(/\b(brochure|tri-fold|trifold|flyer|pamphlet|booklet|menu|listing|headline|heading|title|subtitle|caption|label|tagline|slogan|bullet point|bullet list|contact info|phone number|address|email|URL|website|QR code|coupon|discount code|pricing|price list|service list|testimonial quote|review text|certification badge|logo text|banner text|sign text|panel)\b/gi, '')
-          .replace(/\s{2,}/g, ' ').trim();
-      };
-
-      const extractImageSubjects = (p: string): string => {
-        const subjectPatterns = [
-          /bucket\s*truck/gi, /crane/gi, /tree\s*removal/gi, /tree\s*trimming/gi,
-          /storm\s*damage/gi, /fallen\s*tree/gi, /debris/gi, /chainsaw/gi,
-          /stump\s*grind/gi, /land\s*clear/gi, /forestry/gi, /mulch/gi,
-          /roof/gi, /construction/gi, /excavat/gi, /demolit/gi,
-          /pressure\s*wash/gi, /paint/gi, /plumb/gi, /electric/gi,
-          /hvac/gi, /landscap/gi, /concrete/gi, /pav/gi,
-          /river/gi, /swamp/gi, /waterway/gi, /flood/gi,
-          /utility\s*line/gi, /power\s*line/gi, /right.of.way/gi,
-          /hurricane/gi, /tornado/gi, /emergency/gi, /restoration/gi,
-          /residential/gi, /commercial/gi, /municipal/gi,
-        ];
-        const found: string[] = [];
-        for (const pat of subjectPatterns) {
-          const matches = p.match(pat);
-          if (matches) {
-            matches.forEach(m => {
-              const clean = m.trim().toLowerCase();
-              if (!found.includes(clean)) found.push(clean);
-            });
-          }
-        }
-        return found.length > 0 ? found.slice(0, 5).join(', ') : '';
-      };
-
-      const sceneDesc = stripTextConcepts(prompt);
-      const subjects = extractImageSubjects(prompt);
-      const subjectClause = subjects ? `showing ${subjects}` : '';
-      const heroPrompt = `Cinematic black and white dramatic photograph ${subjectClause}. Professional photojournalism style, high contrast black and white, dramatic shadows and lighting, powerful composition. Shot like an award-winning documentary photograph. This is a SINGLE HERO PHOTOGRAPH to be used as a background visual. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text — not even a single letter. Only render the photographic scene.`;
-
-      const imgResponse = await this.openai.images.generate({
-        model: 'dall-e-3',
-        prompt: heroPrompt,
-        n: 1,
-        size: '1792x1024',
-        quality: 'hd'
-      });
-      brochureData.heroImageUrl = imgResponse.data[0]?.url || '';
-    } catch (imgErr) {
-      console.error('Brochure hero image failed:', imgErr);
+    const generateWatermarkImage = async (sceneDescription: string): Promise<string> => {
+      const imgPrompt = `Cinematic black and white dramatic photograph: ${sceneDescription}. Professional photojournalism style, high contrast black and white, dramatic shadows and visible lighting detail, powerful composition. Shot like an award-winning documentary photograph. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text. Only render the photographic scene.`;
       try {
-        const replitOpenai = new OpenAI({
-          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-        });
-        const imgResponse = await replitOpenai.images.generate({
-          model: 'gpt-image-1',
-          prompt: `Cinematic black and white dramatic professional photograph. High contrast, dramatic lighting. No text, no words, no letters, no numbers, no logos, no signage, no watermarks. Purely visual scene only.`,
+        const imgResponse = await this.openai.images.generate({
+          model: 'dall-e-3',
+          prompt: imgPrompt,
           n: 1,
           size: '1024x1024',
+          quality: 'hd'
         });
-        if (imgResponse.data[0]?.b64_json) {
-          brochureData.heroImageUrl = `data:image/png;base64,${imgResponse.data[0].b64_json}`;
-        } else if (imgResponse.data[0]?.url) {
-          brochureData.heroImageUrl = imgResponse.data[0].url;
+        return imgResponse.data[0]?.url || '';
+      } catch (err) {
+        console.error('DALL-E watermark failed, trying Replit AI:', err);
+        try {
+          const replitOpenai = new OpenAI({
+            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          });
+          const imgResponse = await replitOpenai.images.generate({
+            model: 'gpt-image-1',
+            prompt: imgPrompt,
+            n: 1,
+            size: '1024x1024',
+          });
+          if (imgResponse.data[0]?.b64_json) {
+            return `data:image/png;base64,${imgResponse.data[0].b64_json}`;
+          }
+          return imgResponse.data[0]?.url || '';
+        } catch {
+          return '';
         }
-      } catch {
-        console.error('Fallback hero image also failed');
+      }
+    };
+
+    const panelImageDescriptions: Record<string, string> = {};
+    const allPanels = [...(brochureData.outsidePanels || []), ...(brochureData.insidePanels || [])];
+    for (const panel of allPanels) {
+      const pos = panel.position || '';
+      const title = (panel.title || '').toLowerCase();
+      const bodyText = (panel.body || []).join(' ').toLowerCase();
+      const combined = `${title} ${bodyText}`;
+
+      if (pos === 'front_cover') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'front');
+      } else if (pos === 'back_cover') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'back');
+      } else if (pos === 'inside_flap') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'trust');
+      } else if (pos === 'inside_left') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'residential');
+      } else if (pos === 'inside_center') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'emergency');
+      } else if (pos === 'inside_right') {
+        panelImageDescriptions[pos] = this.inferPanelImageScene(combined, prompt, 'commercial');
       }
     }
 
+    try {
+      const imagePromises: Promise<void>[] = [];
+
+      const frontScene = panelImageDescriptions['front_cover'] || 'Professional crew working with heavy equipment in dramatic lighting';
+      imagePromises.push(
+        generateWatermarkImage(frontScene).then(url => {
+          brochureData.heroImageUrl = url;
+          const fp = brochureData.outsidePanels?.find((p: any) => p.position === 'front_cover');
+          if (fp) fp.watermarkUrl = url;
+        })
+      );
+
+      const insidePositions = ['inside_left', 'inside_center', 'inside_right'];
+      for (const pos of insidePositions) {
+        const scene = panelImageDescriptions[pos];
+        if (scene) {
+          imagePromises.push(
+            generateWatermarkImage(scene).then(url => {
+              const panel = brochureData.insidePanels?.find((p: any) => p.position === pos);
+              if (panel) panel.watermarkUrl = url;
+            })
+          );
+        }
+      }
+
+      const backScene = panelImageDescriptions['back_cover'];
+      if (backScene) {
+        imagePromises.push(
+          generateWatermarkImage(backScene).then(url => {
+            const bp = brochureData.outsidePanels?.find((p: any) => p.position === 'back_cover');
+            if (bp) bp.watermarkUrl = url;
+          })
+        );
+      }
+
+      await Promise.all(imagePromises);
+    } catch (imgErr) {
+      console.error('Panel watermark generation error:', imgErr);
+    }
+
     return brochureData;
+  }
+
+  private inferPanelImageScene(panelContent: string, fullPrompt: string, panelType: string): string {
+    const lc = (fullPrompt + ' ' + panelContent).toLowerCase();
+
+    const sceneMap: Record<string, string[]> = {
+      'tree_residential': ['bucket truck parked in a suburban residential driveway, crew trimming large oak tree near a home, clean neighborhood setting'],
+      'tree_emergency': ['large crane lifting a massive fallen tree off a damaged home roof after a storm, broken limbs and debris, emergency lighting, dramatic storm aftermath scene'],
+      'tree_commercial': ['utility line clearance crew working near high-voltage power lines with bucket truck extended, professional safety equipment, strong vertical composition with power poles'],
+      'tree_trust': ['close-up of professional arborist crew in safety gear, hard hats and harnesses, preparing equipment next to a large bucket truck'],
+      'roof_residential': ['roofing crew on a residential roof replacing shingles, ladders and materials visible, suburban neighborhood'],
+      'roof_emergency': ['storm-damaged roof with tarps and emergency repair crew, broken shingles and debris'],
+      'roof_commercial': ['large commercial roofing project on a flat-roof building, crane and equipment on site'],
+      'restoration_residential': ['water damage restoration crew with equipment inside a home, dehumidifiers and fans visible'],
+      'restoration_emergency': ['flood damage aftermath in a residential area, crews with pumps and restoration equipment'],
+      'general_front': ['dramatic wide shot of professional crew working with heavy equipment at a job site, cinematic lighting'],
+      'general_back': ['textured close-up of professional equipment and tools, dramatic shadows and depth'],
+    };
+
+    let industry = 'general';
+    if (/tree|arborist|stump|trim|forestry|mulch|land\s*clear|bucket\s*truck|crane.*tree/i.test(lc)) industry = 'tree';
+    else if (/roof|shingle|gutter|siding/i.test(lc)) industry = 'roof';
+    else if (/restor|water\s*damage|flood|mold|fire\s*damage/i.test(lc)) industry = 'restoration';
+
+    const key = `${industry}_${panelType}`;
+    const scenes = sceneMap[key] || sceneMap[`general_${panelType}`] || sceneMap['general_front'];
+    return scenes ? scenes[0] : 'Professional crew working at a job site with heavy equipment, dramatic cinematic lighting';
   }
 
   async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string; backgroundMusic?: string }): Promise<any> {

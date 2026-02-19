@@ -99,7 +99,7 @@ def render_highlights(highlights):
     hl = '\n'.join(f'<p class="highlight">{escape_html(h)}</p>' for h in highlights)
     return f'<div class="highlights">{hl}</div>'
 
-def render_panel(panel, accent, is_front=False, company='', tagline='', phone='', website='', creds_html='', extra_class=''):
+def render_panel(panel, accent, is_front=False, company='', tagline='', phone='', website='', creds_html='', extra_class='', fallback_bg=''):
     title = panel.get('title', '')
     subtitle = panel.get('subtitle', '')
     body = panel.get('body', [])
@@ -107,12 +107,22 @@ def render_panel(panel, accent, is_front=False, company='', tagline='', phone=''
     footer = panel.get('footer', '')
     cls = f' {extra_class}' if extra_class else ''
 
+    watermark_url = panel.get('watermarkUrl', '') or panel.get('watermark_url', '')
+    if not watermark_url:
+        watermark_url = fallback_bg
+
+    watermark_data_uri = fetch_image_as_data_uri(watermark_url) if watermark_url else ''
+    panel_bg_html = ''
+    if watermark_data_uri:
+        panel_bg_html = f'<div class="panel-watermark" style="background-image: url(\'{watermark_data_uri}\');"></div>'
+
     if is_front:
         body_line = ''
         if body and len(body) > 0:
             body_line = f'<p class="front-body-line">{escape_html(body[0])}</p>'
         return f'''
         <div class="panel front-panel{cls}">
+            {panel_bg_html}
             <div class="front-content">
                 <h1 class="company-name">{escape_html(company)}</h1>
                 <div class="credentials">{creds_html}</div>
@@ -132,6 +142,7 @@ def render_panel(panel, accent, is_front=False, company='', tagline='', phone=''
 
     return f'''
     <div class="panel content-panel{cls}">
+        {panel_bg_html}
         <div class="panel-header">
             <h2 class="panel-title">{escape_html(title)}</h2>
             {subtitle_html}
@@ -186,14 +197,14 @@ def generate_brochure_html(data):
         bg_css = f'background-image: url("{hero_data_uri}"); background-size: cover; background-position: center;'
 
     if brochure_format == 'tri-fold':
-        return generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+        return generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url)
     elif brochure_format == 'bi-fold':
-        return generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+        return generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url)
     else:
-        return generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h)
+        return generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url)
 
 
-def generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
+def generate_trifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url=''):
     front_panel = None
     back_panel = None
     flap_panel = None
@@ -221,15 +232,15 @@ def generate_trifold_html(data, outside_panels, inside_panels, accent, company, 
     ifold1 = round(inside_w, 4)
     ifold2 = round(inside_w * 2, 4)
 
-    outside_html = render_panel(flap_panel, accent, is_front=False, phone=phone, extra_class='flap-panel')
-    outside_html += render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='back-panel')
+    outside_html = render_panel(flap_panel, accent, is_front=False, phone=phone, extra_class='flap-panel', fallback_bg=hero_url)
+    outside_html += render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='back-panel', fallback_bg=hero_url)
     outside_html += render_panel(front_panel, accent, is_front=True,
                                   company=company, tagline=tagline, phone=phone,
-                                  website=website, creds_html=creds_html, extra_class='front-panel-outer')
+                                  website=website, creds_html=creds_html, extra_class='front-panel-outer', fallback_bg=hero_url)
 
     inside_html = ''
     for p in inside_panels[:3]:
-        inside_html += render_panel(p, accent, is_front=False, phone=phone)
+        inside_html += render_panel(p, accent, is_front=False, phone=phone, fallback_bg=hero_url)
     while len(inside_panels) < 3:
         inside_html += '<div class="panel content-panel"></div>'
         inside_panels.append({})
@@ -268,7 +279,7 @@ def generate_trifold_html(data, outside_panels, inside_panels, accent, company, 
 ''')
 
 
-def generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
+def generate_bifold_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url=''):
     front_panel = None
     back_panel = None
     for p in outside_panels:
@@ -298,13 +309,13 @@ def generate_bifold_html(data, outside_panels, inside_panels, accent, company, t
     if not right_panel:
         right_panel = inside_panels[1] if len(inside_panels) > 1 else {'title': '', 'body': []}
 
-    outside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
+    outside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='half-panel', fallback_bg=hero_url)
     outside_html += render_panel(front_panel, accent, is_front=True,
                                   company=company, tagline=tagline, phone=phone,
-                                  website=website, creds_html=creds_html, extra_class='half-panel')
+                                  website=website, creds_html=creds_html, extra_class='half-panel', fallback_bg=hero_url)
 
-    inside_html = render_panel(left_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
-    inside_html += render_panel(right_panel, accent, is_front=False, phone=phone, extra_class='half-panel')
+    inside_html = render_panel(left_panel, accent, is_front=False, phone=phone, extra_class='half-panel', fallback_bg=hero_url)
+    inside_html += render_panel(right_panel, accent, is_front=False, phone=phone, extra_class='half-panel', fallback_bg=hero_url)
 
     return build_html(accent, bg_css, page_w, page_h, f'''
 <!-- PAGE 1: OUTSIDE -->
@@ -331,15 +342,15 @@ def generate_bifold_html(data, outside_panels, inside_panels, accent, company, t
 ''')
 
 
-def generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h):
+def generate_single_html(data, outside_panels, inside_panels, accent, company, tagline, phone, website, creds_html, bg_css, page_w, page_h, hero_url=''):
     front_panel = outside_panels[0] if len(outside_panels) > 0 else {'title': '', 'body': []}
     back_panel = inside_panels[0] if len(inside_panels) > 0 else {'title': '', 'body': []}
 
     outside_html = render_panel(front_panel, accent, is_front=True,
                                   company=company, tagline=tagline, phone=phone,
-                                  website=website, creds_html=creds_html, extra_class='full-panel')
+                                  website=website, creds_html=creds_html, extra_class='full-panel', fallback_bg=hero_url)
 
-    inside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='full-panel')
+    inside_html = render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='full-panel', fallback_bg=hero_url)
 
     return build_html(accent, bg_css, page_w, page_h, f'''
 <!-- PAGE 1: FRONT -->
@@ -435,6 +446,26 @@ body {{
     flex-direction: column;
     border-right: 1px solid rgba(255,255,255,0.05);
     overflow: hidden;
+}}
+
+.panel-watermark {{
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: cover;
+    background-position: center;
+    filter: grayscale(100%) contrast(1.1) brightness(0.9);
+    opacity: 0.35;
+    z-index: 0;
+}}
+
+.front-panel .panel-watermark {{
+    opacity: 0.7;
+    filter: grayscale(100%) contrast(1.15);
+}}
+
+.panel > *:not(.panel-watermark) {{
+    position: relative;
+    z-index: 1;
 }}
 
 .panel:last-child {{

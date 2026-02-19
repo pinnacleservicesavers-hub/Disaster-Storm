@@ -26,6 +26,7 @@ interface BrochurePanel {
   body: string[];
   highlights?: string[];
   footer?: string;
+  watermarkUrl?: string;
 }
 
 interface BrochureData {
@@ -221,6 +222,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
     const panelWidth = `${100 / totalPanelsInRow}%`;
 
     if (isFront) {
+      const frontBgUrl = panel.watermarkUrl || data?.heroImageUrl;
       return (
         <div
           key={index}
@@ -231,9 +233,9 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             background: 'linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 40%, #181818 100%)',
           }}
         >
-          {data?.heroImageUrl && (
+          {frontBgUrl && (
             <div className="absolute inset-0" style={{
-              backgroundImage: `url(${data.heroImageUrl})`,
+              backgroundImage: `url(${frontBgUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               opacity: 0.7,
@@ -287,6 +289,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       );
     }
 
+    const panelBgUrl = panel.watermarkUrl || data?.heroImageUrl;
     return (
       <div
         key={index}
@@ -297,9 +300,9 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
           background: 'linear-gradient(180deg, #252525 0%, #1e1e1e 50%, #1a1a1a 100%)',
         }}
       >
-        {data?.heroImageUrl && (
+        {panelBgUrl && (
           <div className="absolute inset-0" style={{
-            backgroundImage: `url(${data.heroImageUrl})`,
+            backgroundImage: `url(${panelBgUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             opacity: 0.35,
