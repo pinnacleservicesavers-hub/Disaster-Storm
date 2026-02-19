@@ -583,9 +583,21 @@ CRITICAL QUALITY RULES:
 
 You must respond with ONLY valid JSON (no markdown, no code fences).`;
 
-    const userPrompt = `Create professional brochure content from this description:
+    const userPrompt = `Create professional TRI-FOLD brochure content from this description:
 
 "${prompt}"
+
+A real tri-fold brochure has TWO SIDES printed on one sheet of paper (11x8.5 inches):
+
+OUTSIDE (Page 1 — what you see when the brochure is folded):
+  - Panel 1: FRONT COVER (right third) — the first thing people see. Company name, tagline, hero visual area, phone number.
+  - Panel 2: BACK COVER (center third) — contact info, credentials, map/address, social media, QR code placeholder.
+  - Panel 3: INSIDE FLAP (left third, slightly narrower) — teaser content, special offer, or "Why Choose Us" to entice opening.
+
+INSIDE (Page 2 — what you see when the brochure is opened flat):
+  - Panel 4: INSIDE LEFT — first content panel (e.g., About Us, Our Story, Mission).
+  - Panel 5: INSIDE CENTER — main services/features panel.
+  - Panel 6: INSIDE RIGHT — additional services, testimonials, or call-to-action panel.
 
 Generate a JSON object with this exact structure:
 {
@@ -595,33 +607,71 @@ Generate a JSON object with this exact structure:
   "website": "The website provided",
   "credentials": ["credential1", "credential2"],
   "accentColor": "#D4FF00",
-  "panels": [
+  "outsidePanels": [
     {
-      "title": "FRONT PANEL TITLE",
-      "subtitle": "optional subtitle",
-      "body": ["line1", "line2"],
-      "highlights": ["FREE ESTIMATES", "highlight2"],
+      "position": "front_cover",
+      "title": "COMPANY NAME",
+      "subtitle": "tagline",
+      "body": ["Professional description line"],
+      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY"],
       "footer": ""
     },
     {
-      "title": "SECOND PANEL TITLE",
-      "subtitle": "subtitle",
-      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
-      "highlights": ["TAGLINE"],
+      "position": "back_cover",
+      "title": "CONTACT US",
+      "subtitle": "",
+      "body": ["Address line", "Phone: 800-555-1234", "Website: company.com", "Email: info@company.com"],
+      "highlights": ["Licensed • Insured • Bonded"],
+      "footer": "Serving the community since 2010"
+    },
+    {
+      "position": "inside_flap",
+      "title": "WHY CHOOSE US",
+      "subtitle": "",
+      "body": ["✔ Reason 1", "✔ Reason 2", "✔ Reason 3"],
+      "highlights": ["SPECIAL OFFER"],
+      "footer": ""
+    }
+  ],
+  "insidePanels": [
+    {
+      "position": "inside_left",
+      "title": "ABOUT US",
+      "subtitle": "Our Story",
+      "body": ["Description of company history and mission"],
+      "highlights": [],
+      "footer": ""
+    },
+    {
+      "position": "inside_center",
+      "title": "OUR SERVICES",
+      "subtitle": "What We Do",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3", "✔ Service 4"],
+      "highlights": ["QUALITY GUARANTEED"],
+      "footer": ""
+    },
+    {
+      "position": "inside_right",
+      "title": "GET STARTED",
+      "subtitle": "Ready to begin?",
+      "body": ["✔ Step 1: Call for free estimate", "✔ Step 2: We assess your needs", "✔ Step 3: Work begins"],
+      "highlights": ["CALL TODAY"],
       "footer": ""
     }
   ]
 }
 
-Rules for panels:
-- Create 4-5 panels total (front panel + 3-4 content panels)
-- Front panel: company name, tagline, credentials, contact info
-- Content panels: organize services logically (e.g., residential, commercial, emergency)
+Rules:
+- Create EXACTLY 3 outsidePanels and EXACTLY 3 insidePanels (6 total for a proper tri-fold)
+- Front cover: company name prominent, tagline, key credentials, phone number
+- Back cover: full contact details, credentials list, service area, social media placeholders
+- Inside flap: teaser to entice reader to open — "Why Choose Us" or a special offer
+- Inside panels: organize services/content logically across all 3 inside panels
 - Use ✔ prefix for service/feature lists
 - Use • prefix for sub-items
 - Keep panel titles SHORT and POWERFUL (3-5 words max)
-- Include all services, certifications, and details the user mentioned
-- Do NOT add services or certifications the user did not mention
+- Include ALL services, certifications, and details the user mentioned
+- Do NOT invent services, phone numbers, or certifications the user did not mention
 - If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
 
     const response = await this.openai.chat.completions.create({
@@ -658,10 +708,16 @@ Rules for panels:
           website: 'yourcompany.com',
           credentials: ['Licensed', 'Insured', 'Bonded'],
           accentColor: '#D4FF00',
-          panels: [
-            { title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
-            { title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: [] },
-          ]
+          outsidePanels: [
+            { position: 'front_cover', title: 'YOUR COMPANY', body: ['Professional services'], highlights: ['FREE ESTIMATES'] },
+            { position: 'back_cover', title: 'CONTACT US', body: ['Call us today'], highlights: [] },
+            { position: 'inside_flap', title: 'WHY CHOOSE US', body: ['✔ Quality', '✔ Reliability'], highlights: [] },
+          ],
+          insidePanels: [
+            { position: 'inside_left', title: 'ABOUT US', body: ['Our story'], highlights: [] },
+            { position: 'inside_center', title: 'OUR SERVICES', body: ['✔ Service 1', '✔ Service 2'], highlights: [] },
+            { position: 'inside_right', title: 'GET STARTED', body: ['Call for a free estimate'], highlights: ['CALL TODAY'] },
+          ],
         };
       }
     }

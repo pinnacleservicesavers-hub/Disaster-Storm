@@ -197,11 +197,16 @@ export function registerAIAdsRoutes(app: Express) {
 
     try {
       const { brochureData } = req.body;
-      if (!brochureData || !brochureData.panels || !Array.isArray(brochureData.panels)) {
+      const hasNewFormat = brochureData?.outsidePanels && brochureData?.insidePanels;
+      const hasOldFormat = brochureData?.panels && Array.isArray(brochureData.panels);
+      if (!brochureData || (!hasNewFormat && !hasOldFormat)) {
         return res.status(400).json({ error: 'Valid brochure data with panels is required' });
       }
-      if (brochureData.panels.length > 10) {
-        return res.status(400).json({ error: 'Maximum 10 panels allowed' });
+      const totalPanels = hasNewFormat
+        ? (brochureData.outsidePanels.length + brochureData.insidePanels.length)
+        : brochureData.panels.length;
+      if (totalPanels > 12) {
+        return res.status(400).json({ error: 'Maximum 12 panels allowed' });
       }
 
       const inputJson = JSON.stringify(brochureData);

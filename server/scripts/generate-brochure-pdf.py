@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Professional multi-column brochure PDF generator using WeasyPrint.
-Takes JSON brochure data from stdin, outputs PDF to stdout or specified file.
+Professional 2-sided tri-fold brochure PDF generator using WeasyPrint.
+Produces a 2-page PDF: Page 1 = Outside (front cover, back cover, flap), Page 2 = Inside (3 inner panels).
+Takes JSON brochure data from stdin, outputs PDF to specified file.
 """
 
 import sys
@@ -19,10 +20,9 @@ ALLOWED_IMAGE_HOSTS = {
     'dalleprodsec.blob.core.windows.net',
     'images.openai.com',
 }
-MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20MB
+MAX_IMAGE_SIZE = 20 * 1024 * 1024
 
 def is_safe_url(url):
-    """Check that URL is HTTPS and points to an allowed host, not a private IP."""
     try:
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != 'https':
@@ -43,13 +43,11 @@ def is_safe_url(url):
         return False
 
 def fetch_image_as_data_uri(url):
-    """Download image and convert to data URI for embedding in PDF."""
     try:
         if not url:
             return ""
         if url.startswith('data:'):
             if len(url) > MAX_IMAGE_SIZE:
-                sys.stderr.write("Data URI too large, skipping\n")
                 return ""
             return url
         if not is_safe_url(url):
@@ -59,7 +57,6 @@ def fetch_image_as_data_uri(url):
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = resp.read(MAX_IMAGE_SIZE + 1)
             if len(data) > MAX_IMAGE_SIZE:
-                sys.stderr.write("Image too large, skipping\n")
                 return ""
             content_type = resp.headers.get('Content-Type', 'image/jpeg')
             b64 = base64.b64encode(data).decode('utf-8')
@@ -68,97 +65,134 @@ def fetch_image_as_data_uri(url):
         sys.stderr.write(f"Image fetch failed: {e}\n")
         return ""
 
+def escape_html(text):
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+def render_body_items(body_lines):
+    items = []
+    for line in body_lines:
+        stripped = line.lstrip()
+        if stripped.startswith(('\u2714', '\u2022', '-', '\u2713', '\u25ba')):
+            clean = stripped.lstrip('\u2714\u2022-\u2713\u25ba ')
+            items.append(f'<div class="check-item"><span class="ci">\u2714</span><span>{escape_html(clean)}</span></div>')
+        else:
+            items.append(f'<p class="body-text">{escape_html(line)}</p>')
+    return '\n'.join(items)
+
+def render_highlights(highlights):
+    if not highlights:
+        return ''
+    hl = '\n'.join(f'<p class="highlight">{escape_html(h)}</p>' for h in highlights)
+    return f'<div class="highlights">{hl}</div>'
+
+def render_panel(panel, accent, is_front=False, company='', tagline='', phone='', website='', creds_html='', extra_class=''):
+    title = panel.get('title', '')
+    subtitle = panel.get('subtitle', '')
+    body = panel.get('body', [])
+    highlights = panel.get('highlights', [])
+    footer = panel.get('footer', '')
+    cls = f' {extra_class}' if extra_class else ''
+
+    if is_front:
+        return f'''
+        <div class="panel front-panel{cls}">
+            <div class="front-content">
+                <h1 class="company-name">{escape_html(company)}</h1>
+                <div class="credentials">{creds_html}</div>
+                <div class="accent-line"></div>
+                <p class="tagline">{escape_html(tagline)}</p>
+                {render_highlights(highlights)}
+            </div>
+            <div class="contact-block">
+                <p class="phone">{escape_html(phone)}</p>
+                <p class="website-text">{escape_html(website)}</p>
+            </div>
+        </div>'''
+
+    subtitle_html = f'<p class="panel-subtitle">{escape_html(subtitle)}</p>' if subtitle else ''
+    footer_html = f'<div class="panel-footer">{escape_html(footer)}</div>' if footer else ''
+
+    return f'''
+    <div class="panel content-panel{cls}">
+        <div class="panel-header">
+            <h2 class="panel-title">{escape_html(title)}</h2>
+            {subtitle_html}
+            <div class="accent-line"></div>
+        </div>
+        <div class="panel-body">
+            {render_body_items(body)}
+        </div>
+        {render_highlights(highlights)}
+        {footer_html}
+        <div class="panel-phone">{escape_html(phone)}</div>
+    </div>'''
+
+
 def generate_brochure_html(data):
-    """Generate professional multi-column brochure HTML with CSS."""
     company = data.get('companyName', 'Your Company')
     tagline = data.get('tagline', '')
     phone = data.get('phone', '')
     website = data.get('website', '')
     credentials = data.get('credentials', [])
     accent = data.get('accentColor', '#D4FF00')
-    panels = data.get('panels', [])
     hero_url = data.get('heroImageUrl', '')
-    layout = data.get('layout', 'tri-fold')
+
+    outside_panels = data.get('outsidePanels', [])
+    inside_panels = data.get('insidePanels', [])
+
+    if not outside_panels and not inside_panels:
+        old_panels = data.get('panels', [])
+        if old_panels:
+            outside_panels = old_panels[:3] if len(old_panels) >= 3 else old_panels
+            inside_panels = old_panels[3:6] if len(old_panels) > 3 else []
+            while len(outside_panels) < 3:
+                outside_panels.append({'title': '', 'body': [], 'highlights': []})
+            while len(inside_panels) < 3:
+                inside_panels.append({'title': '', 'body': [], 'highlights': []})
 
     hero_data_uri = fetch_image_as_data_uri(hero_url) if hero_url else ''
 
-    num_panels = len(panels)
-    if num_panels <= 3:
-        col_count = num_panels
-    elif num_panels <= 5:
-        col_count = num_panels
-    else:
-        col_count = 5
-
-    col_width = f"{100 / col_count:.2f}%"
-
-    creds_html = ' &bull; '.join(f'<span class="cred">{c}</span>' for c in credentials)
-
-    panels_html = []
-    for i, panel in enumerate(panels):
-        title = panel.get('title', '')
-        subtitle = panel.get('subtitle', '')
-        body_lines = panel.get('body', [])
-        highlights = panel.get('highlights', [])
-        footer = panel.get('footer', '')
-
-        body_items = []
-        for line in body_lines:
-            line_stripped = line.lstrip()
-            if line_stripped.startswith(('✔', '•', '-', '✓', '►')):
-                clean = line_stripped.lstrip('✔•-✓► ')
-                body_items.append(f'<div class="check-item"><span class="check-icon">✔</span><span>{clean}</span></div>')
-            else:
-                body_items.append(f'<p class="body-text">{line}</p>')
-
-        highlight_html = ''
-        if highlights:
-            hl_items = ''.join(f'<p class="highlight">{h}</p>' for h in highlights)
-            highlight_html = f'<div class="highlights">{hl_items}</div>'
-
-        footer_html = f'<div class="panel-footer">{footer}</div>' if footer else ''
-
-        if i == 0:
-            panels_html.append(f'''
-            <div class="panel front-panel">
-                <div class="front-content">
-                    <h1 class="company-name">{company}</h1>
-                    <div class="credentials">{creds_html}</div>
-                    <div class="accent-line"></div>
-                    <p class="tagline">{tagline}</p>
-                    {highlight_html}
-                </div>
-                <div class="contact-block">
-                    <p class="phone">{phone}</p>
-                    <p class="website">{website}</p>
-                </div>
-            </div>
-            ''')
-        else:
-            subtitle_html = f'<p class="panel-subtitle">{subtitle}</p>' if subtitle else ''
-            panels_html.append(f'''
-            <div class="panel content-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">{title}</h2>
-                    {subtitle_html}
-                    <div class="accent-line"></div>
-                </div>
-                <div class="panel-body">
-                    {"".join(body_items)}
-                </div>
-                {highlight_html}
-                {footer_html}
-                <div class="panel-phone">{phone}</div>
-            </div>
-            ''')
+    creds_html = ' &bull; '.join(f'<span class="cred">{escape_html(c)}</span>' for c in credentials)
 
     bg_css = ''
     if hero_data_uri:
-        bg_css = f'''
-            background-image: url("{hero_data_uri}");
-            background-size: cover;
-            background-position: center;
-        '''
+        bg_css = f'background-image: url("{hero_data_uri}"); background-size: cover; background-position: center;'
+
+    # Outside: print order is [inside_flap, back_cover, front_cover] left-to-right
+    # When folded: front_cover is visible on the right, flap tucks inside
+    outside_order = []
+    front_panel = None
+    back_panel = None
+    flap_panel = None
+    for p in outside_panels:
+        pos = p.get('position', '')
+        if pos == 'front_cover':
+            front_panel = p
+        elif pos == 'back_cover':
+            back_panel = p
+        elif pos == 'inside_flap':
+            flap_panel = p
+    if not front_panel:
+        front_panel = outside_panels[0] if len(outside_panels) > 0 else {'title': '', 'body': []}
+    if not back_panel:
+        back_panel = outside_panels[1] if len(outside_panels) > 1 else {'title': '', 'body': []}
+    if not flap_panel:
+        flap_panel = outside_panels[2] if len(outside_panels) > 2 else {'title': '', 'body': []}
+
+    # Print layout outside: flap (left, narrower) | back (center) | front (right)
+    outside_html = render_panel(flap_panel, accent, is_front=False, phone=phone, extra_class='flap-panel')
+    outside_html += render_panel(back_panel, accent, is_front=False, phone=phone, extra_class='back-panel')
+    outside_html += render_panel(front_panel, accent, is_front=True,
+                                  company=company, tagline=tagline, phone=phone,
+                                  website=website, creds_html=creds_html, extra_class='front-panel-outer')
+
+    # Inside: left | center | right
+    inside_html = ''
+    for p in inside_panels[:3]:
+        inside_html += render_panel(p, accent, is_front=False, phone=phone)
+    while len(inside_panels) < 3:
+        inside_html += '<div class="panel content-panel"></div>'
+        inside_panels.append({})
 
     html = f'''<!DOCTYPE html>
 <html>
@@ -166,7 +200,7 @@ def generate_brochure_html(data):
 <meta charset="UTF-8">
 <style>
 @page {{
-    size: 14in 8.5in landscape;
+    size: 11in 8.5in landscape;
     margin: 0;
 }}
 
@@ -184,8 +218,19 @@ body {{
     print-color-adjust: exact;
 }}
 
+.page-label {{
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    font-size: 6pt;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    z-index: 10;
+}}
+
 .brochure-page {{
-    width: 14in;
+    width: 11in;
     height: 8.5in;
     display: flex;
     position: relative;
@@ -198,18 +243,46 @@ body {{
     top: 0; left: 0; right: 0; bottom: 0;
     {bg_css}
     filter: grayscale(100%) contrast(1.2);
-    opacity: 0.15;
+    opacity: 0.12;
+}}
+
+/* Fold guides */
+.fold-line {{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.08);
+    z-index: 5;
+}}
+.fold-1 {{ left: 3.625in; }}
+.fold-2 {{ left: 7.3125in; }}
+.fold-inside-1 {{ left: 3.6875in; }}
+.fold-inside-2 {{ left: 7.375in; }}
+
+/* Panel sizing for outside: flap is slightly narrower */
+.flap-panel {{
+    width: 3.5in;
+}}
+.back-panel,
+.front-panel-outer {{
+    width: 3.75in;
+}}
+
+/* Panel sizing for inside: equal thirds */
+.inside-page .panel {{
+    width: 3.6667in;
 }}
 
 .panel {{
-    width: {col_width};
     height: 8.5in;
     position: relative;
     z-index: 2;
-    padding: 0.5in 0.4in;
+    padding: 0.45in 0.35in;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
 }}
 
 .panel:last-child {{
@@ -218,19 +291,10 @@ body {{
 
 /* Front Panel */
 .front-panel {{
-    background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.95) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.95) 100%);
     text-align: center;
     justify-content: center;
     align-items: center;
-}}
-
-.front-panel .bg-overlay {{
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    {bg_css}
-    filter: grayscale(100%) contrast(1.2);
-    opacity: 0.4;
-    z-index: -1;
 }}
 
 .front-content {{
@@ -242,96 +306,96 @@ body {{
 }}
 
 .company-name {{
-    font-size: 22pt;
+    font-size: 20pt;
     font-weight: 900;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: #fff;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     line-height: 1.1;
 }}
 
 .credentials {{
-    font-size: 7pt;
+    font-size: 6.5pt;
     font-weight: 700;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: {accent};
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    line-height: 1.5;
 }}
 
 .cred {{
-    margin: 0 4px;
+    margin: 0 3px;
 }}
 
 .accent-line {{
-    width: 60px;
-    height: 3px;
+    width: 50px;
+    height: 2.5px;
     background: {accent};
-    margin: 16px auto;
+    margin: 14px auto;
 }}
 
 .tagline {{
-    font-size: 14pt;
+    font-size: 12pt;
     font-weight: 800;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: {accent};
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     line-height: 1.3;
 }}
 
 .contact-block {{
-    padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.12);
 }}
 
 .phone {{
-    font-size: 16pt;
+    font-size: 14pt;
     font-weight: 900;
     color: #fff;
-    letter-spacing: 0.1em;
-    margin-bottom: 4px;
-    text-shadow: 0 0 20px {accent}40;
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
 }}
 
-.website {{
-    font-size: 10pt;
+.website-text {{
+    font-size: 9pt;
     font-weight: 700;
     color: {accent};
 }}
 
 /* Content Panels */
 .content-panel {{
-    background: linear-gradient(180deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.96) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.96) 100%);
 }}
 
 .panel-header {{
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }}
 
 .panel-title {{
-    font-size: 13pt;
+    font-size: 11pt;
     font-weight: 900;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: {accent};
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     line-height: 1.2;
 }}
 
 .panel-subtitle {{
-    font-size: 8pt;
+    font-size: 7.5pt;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: #aaa;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }}
 
 .content-panel .accent-line {{
-    width: 40px;
-    margin: 10px 0;
+    width: 35px;
+    margin: 8px 0;
 }}
 
 .panel-body {{
@@ -341,14 +405,14 @@ body {{
 .check-item {{
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 6px;
-    font-size: 8.5pt;
+    gap: 6px;
+    margin-bottom: 5px;
+    font-size: 8pt;
     line-height: 1.4;
     color: #fff;
 }}
 
-.check-icon {{
+.ci {{
     color: {accent};
     font-weight: 700;
     flex-shrink: 0;
@@ -356,51 +420,81 @@ body {{
 }}
 
 .body-text {{
-    font-size: 8.5pt;
+    font-size: 8pt;
     line-height: 1.5;
     color: #ddd;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }}
 
 .highlights {{
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.07);
 }}
 
 .highlight {{
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 800;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: {accent};
-    margin-bottom: 3px;
+    margin-bottom: 2px;
 }}
 
 .panel-footer {{
-    margin-top: 10px;
-    font-size: 7pt;
+    margin-top: 8px;
+    font-size: 6.5pt;
     color: #888;
     line-height: 1.4;
 }}
 
 .panel-phone {{
     margin-top: auto;
-    padding-top: 10px;
+    padding-top: 8px;
     text-align: center;
-    font-size: 8pt;
+    font-size: 7.5pt;
     font-weight: 800;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: {accent};
+}}
+
+/* Side label */
+.side-label {{
+    position: absolute;
+    bottom: 8px;
+    left: 12px;
+    font-size: 5.5pt;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    z-index: 10;
 }}
 </style>
 </head>
 <body>
-<div class="brochure-page">
+
+<!-- PAGE 1: OUTSIDE (what you see when brochure is folded) -->
+<!-- Print order left-to-right: Inside Flap | Back Cover | Front Cover -->
+<div class="brochure-page outside-page">
     <div class="bg-layer"></div>
-    {"".join(panels_html)}
+    <div class="fold-line fold-1"></div>
+    <div class="fold-line fold-2"></div>
+    <span class="page-label">Outside &mdash; Page 1 of 2</span>
+    <span class="side-label">&larr; Flap &nbsp;&nbsp;|&nbsp;&nbsp; Back Cover &nbsp;&nbsp;|&nbsp;&nbsp; Front Cover &rarr;</span>
+    {outside_html}
 </div>
+
+<!-- PAGE 2: INSIDE (what you see when brochure is opened flat) -->
+<div class="brochure-page inside-page">
+    <div class="bg-layer"></div>
+    <div class="fold-line fold-inside-1"></div>
+    <div class="fold-line fold-inside-2"></div>
+    <span class="page-label">Inside &mdash; Page 2 of 2</span>
+    <span class="side-label">&larr; Inside Left &nbsp;&nbsp;|&nbsp;&nbsp; Inside Center &nbsp;&nbsp;|&nbsp;&nbsp; Inside Right &rarr;</span>
+    {inside_html}
+</div>
+
 </body>
 </html>'''
 
