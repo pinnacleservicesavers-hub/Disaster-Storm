@@ -963,34 +963,56 @@ Rules:
   private inferPanelImageScene(panelContent: string, fullPrompt: string, panelType: string): string {
     const lc = (fullPrompt + ' ' + panelContent).toLowerCase();
 
-    const sceneMap: Record<string, string[]> = {
-      'tree_front': ['A white bucket truck with its boom arm fully extended high into a massive oak tree, an arborist worker in the bucket cutting branches with a chainsaw, wood chips falling, bright daylight, suburban street with houses visible in background, wide-angle shot from ground level looking up'],
-      'tree_back': ['Close-up of a professional chainsaw resting on a freshly cut tree stump with sawdust and wood chips around it, work gloves and safety helmet sitting next to it, shallow depth of field, outdoor setting'],
-      'tree_residential': ['A bucket truck parked on a residential street next to a large shade tree, crew members on the ground feeding branches into a wood chipper, neat suburban homes in the background, bright daytime, eye-level shot showing the full truck and tree'],
-      'tree_emergency': ['A large yellow crane with its boom extended over a residential roof, lifting a massive fallen tree trunk that crashed through the roof during a storm, broken shingles and debris visible, overcast sky, wide shot showing the full crane and damaged house'],
-      'tree_commercial': ['A row of tall utility poles along a highway with power lines, a bucket truck positioned next to one pole with a lineman trimming tree branches away from the wires, clear sky, shot from the road showing the truck and utility corridor'],
-      'tree_trust': ['Three arborist workers standing together near a bucket truck wearing hard hats, safety harnesses, high-visibility vests, and work boots, professional team photo pose, equipment and ropes visible, outdoor setting with trees in background'],
-      'roof_front': ['Roofing crew on top of a two-story residential house installing new shingles, ladders leaning against the house, bundles of shingles on the roof, bright sunny day, shot from the yard looking up at the workers on the roof'],
-      'roof_back': ['Close-up of a roofer using a nail gun on a roof surface with new shingles being installed, work boots and knee pads visible, roofing materials around'],
-      'roof_residential': ['A residential home with half the roof stripped showing the wood decking and the other half with new shingles installed, a crew member working at the transition line, roofing materials and tools organized on the roof'],
-      'roof_emergency': ['A storm-damaged residential roof with a large blue tarp covering a hole, broken shingles scattered in the yard, a crew member on a ladder inspecting the damage, overcast sky'],
-      'roof_commercial': ['A flat commercial building roof with a crew installing TPO membrane roofing, large rolls of white roofing material, workers using heat welders, HVAC units visible on the rooftop'],
-      'restoration_front': ['A restoration crew in protective suits and respirators setting up industrial dehumidifiers and air movers inside a water-damaged living room, wet carpet partially pulled up, standing water visible'],
-      'restoration_back': ['Close-up of industrial water extraction equipment with hoses running into a flooded room, restoration company equipment staged in a garage'],
-      'restoration_residential': ['Workers using moisture meters on wet drywall inside a home, commercial dehumidifiers running, wet insulation pulled from walls, protective plastic sheeting on furniture'],
-      'restoration_emergency': ['Exterior of a flooded home with water line marks on siding, a restoration van parked in the driveway, crew carrying equipment through the front door, muddy yard'],
-      'general_front': ['A professional contractor crew working outdoors with heavy equipment — a truck, tools, and safety gear visible — bright natural daylight, wide-angle shot of a real work site with workers actively engaged'],
-      'general_back': ['Close-up of well-organized professional work tools — wrenches, drills, safety equipment — laid out on a truck tailgate, outdoor setting with natural light'],
-    };
-
     let industry = 'general';
-    if (/tree|arborist|stump|trim|forestry|mulch|land\s*clear|bucket\s*truck|crane.*tree/i.test(lc)) industry = 'tree';
+    if (/tree|arborist|stump|trim|forestry|mulch|land\s*clear|bucket\s*truck|crane|chainsaw|wood\s*chip|debris|storm\s*response|fallen|limb|branch|vegetation|strategic\s*land/i.test(lc)) industry = 'tree';
     else if (/roof|shingle|gutter|siding/i.test(lc)) industry = 'roof';
     else if (/restor|water\s*damage|flood|mold|fire\s*damage/i.test(lc)) industry = 'restoration';
 
-    const key = `${industry}_${panelType}`;
-    const scenes = sceneMap[key] || sceneMap[`general_${panelType}`] || sceneMap['general_front'];
-    return scenes ? scenes[0] : 'Professional crew working at a job site with heavy equipment, dramatic cinematic lighting';
+    let contentType = panelType;
+    const panelLc = panelContent.toLowerCase();
+    if (/residential|your property|home|neighborhood|yard/i.test(panelLc)) contentType = 'residential';
+    else if (/emergency|storm|disaster|fallen|hurricane|tornado|rapid|24.*7|urgent/i.test(panelLc)) contentType = 'emergency';
+    else if (/commercial|municipal|utility|power\s*line|government|right.of.way|industrial/i.test(panelLc)) contentType = 'commercial';
+    else if (/veteran|trust|why choose|certified|about|team|crew|experience|qualif/i.test(panelLc)) contentType = 'trust';
+    else if (/contact|call|phone|website|free estimate/i.test(panelLc)) contentType = 'back';
+
+    const sceneMap: Record<string, Record<string, string>> = {
+      tree: {
+        front: 'A white bucket truck with its boom arm fully extended high into a massive oak tree, an arborist worker in the bucket cutting branches with a chainsaw, wood chips falling through the air, bright daylight, suburban street with houses visible in background, wide-angle shot from ground level looking up at the worker and tree canopy',
+        back: 'Close-up of a professional chainsaw resting on a freshly cut large tree stump with golden sawdust and wood chips scattered around it, a hard hat and work gloves sitting beside it, shallow depth of field, outdoor wooded setting with warm natural light',
+        residential: 'A large white bucket truck parked on a quiet residential street beside a tall mature shade tree, two crew members on the ground feeding cut branches into an orange wood chipper machine, wood chips spraying out, neat suburban homes with green lawns in the background, bright sunny daytime, eye-level photo',
+        emergency: 'A large yellow construction crane with its long boom arm extended over a damaged residential roof, steel cables lifting a massive fallen tree trunk that crashed through the house during a storm, broken roof shingles and splintered wood debris scattered on the ground, dark overcast sky, wide-angle shot showing the full crane, the damaged house, and fallen tree',
+        commercial: 'A tall white bucket truck with its hydraulic boom extended 60 feet up to power lines, an experienced lineman in the bucket using a pole saw to trim tree branches growing dangerously close to high-voltage electrical wires, tall wooden utility poles stretching into the distance along a rural highway, clear blue sky, shot from road level',
+        trust: 'Four professional arborist workers standing confidently in front of a large white bucket truck, all wearing bright orange hard hats, yellow high-visibility safety vests, climbing harnesses with carabiners, and steel-toe work boots, professional team portrait, chainsaws and climbing ropes organized at their feet, large trees and blue sky in the background',
+      },
+      roof: {
+        front: 'Roofing crew of four workers on top of a two-story residential house actively installing new architectural shingles, aluminum extension ladders leaning against the house, bundles of shingles stacked on the roof, bright sunny day with blue sky, shot from the front yard looking up at the workers on the steep roof pitch',
+        back: 'Close-up of a roofer kneeling on new shingles using a pneumatic nail gun, work boots and knee pads visible, stacks of new shingle bundles nearby, tools organized in a belt',
+        residential: 'A residential home with half the old roof stripped down showing the plywood decking and the other half covered with new dark architectural shingles, a worker at the transition line installing felt paper, roofing materials organized neatly, dumpster in driveway with old shingles',
+        emergency: 'A storm-damaged residential roof with a section caved in, covered by a large blue protective tarp secured with sandbags, broken shingles scattered across the front yard, a crew member on an extension ladder inspecting the damage edge, dark overcast stormy sky, the rest of the neighborhood visible',
+        commercial: 'Workers on a large flat commercial building rooftop installing white TPO membrane roofing, large rolls of roofing material partially unrolled, a worker using an industrial heat welder, silver HVAC units visible on the rooftop, wide shot showing the scale of the project',
+        trust: 'Professional roofing crew standing on a completed residential roof, wearing safety harnesses and hard hats, tools in hand, finished work visible behind them, blue sky',
+      },
+      restoration: {
+        front: 'A restoration crew in white protective Tyvek suits and respirator masks setting up rows of large industrial dehumidifiers and yellow air mover fans inside a water-damaged living room, soggy carpet partially pulled up revealing wet subfloor, water stains on lower walls',
+        back: 'Close-up of industrial water extraction equipment with thick blue hoses running from a van into a house entrance, restoration equipment cases stacked neatly, branded work van in driveway',
+        residential: 'Workers using handheld moisture meters pressed against wet drywall inside a damaged home, large commercial dehumidifiers running with hoses, wet fiberglass insulation pulled from open wall cavities, clear plastic sheeting protecting furniture',
+        emergency: 'Exterior of a flood-damaged home with visible brown water line marks on the white vinyl siding, a restoration company van parked in the driveway with equipment staged, two crew members in protective gear carrying extraction equipment through the front door, muddy yard with standing water',
+        commercial: 'Large commercial building interior with industrial restoration equipment set up — multiple dehumidifiers, air scrubbers, containment barriers, workers in protective suits assessing damage',
+        trust: 'Professional restoration team standing with their equipment van, wearing branded uniforms and safety gear, industrial equipment visible behind them',
+      },
+      general: {
+        front: 'A professional contractor crew of four workers actively engaged at an outdoor work site with a large white work truck, power tools, safety cones, and organized equipment, bright natural daylight, wide-angle shot showing the team working together',
+        back: 'Close-up of neatly organized professional contractor tools — heavy-duty power drill, measuring tape, work gloves, safety glasses, hard hat — laid out on a metal truck tailgate, outdoor setting with warm natural light',
+        residential: 'Professional contractors working at a residential property, truck parked in driveway, organized equipment and tools, neat suburban home in background, bright daytime',
+        emergency: 'Emergency response crew arriving at a damaged property with work trucks, emergency lighting, workers unloading equipment rapidly, dramatic overcast sky',
+        commercial: 'Large commercial work site with heavy equipment, professional crew in safety vests and hard hats, organized staging area, industrial setting',
+        trust: 'Professional contractor team standing together in front of their work truck, wearing matching safety gear, tools and equipment organized behind them, confident professional team photo',
+      },
+    };
+
+    const industryScenes = sceneMap[industry] || sceneMap.general;
+    return industryScenes[contentType] || industryScenes[panelType] || industryScenes.front;
   }
 
   async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string; backgroundMusic?: string }): Promise<any> {
