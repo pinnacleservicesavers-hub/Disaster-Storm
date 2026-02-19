@@ -580,6 +580,10 @@ CRITICAL QUALITY RULES:
 - PERFECT GRAMMAR: Every sentence must be grammatically flawless.
 - USE ONLY THE INFORMATION PROVIDED: Do not invent phone numbers, websites, certifications, or services the user did not mention.
 - PROFESSIONAL TONE: Clean, authoritative, trustworthy language.
+- FOLLOW USER INSTRUCTIONS EXACTLY: If the user provides specific panel-by-panel content, use their EXACT wording, panel titles, bullet points, and structure. Do NOT rewrite, rephrase, reorder, or paraphrase their content. Your job is to organize their content into the JSON structure, not to rewrite it.
+- ACCENT COLOR: If the user specifies a color (like safety yellow, neon yellow, etc.), use their exact hex code. Common mappings: "safety yellow" or "neon yellow" = "#FFD100", "red" = "#FF0000", "blue" = "#0066CC". Only default to "#D4FF00" if NO color is mentioned at all.
+- BACK PANEL: Keep the back cover panel CLEAN and MINIMAL. Only include: company name/title, key certifications (short list), phone number, and website. Do NOT overload the back panel with services or long descriptions — the inside panels are for detailed content.
+- BODY ITEMS: Each body item should be a SHORT line (under 60 characters). Long paragraphs should be split into multiple body items. Avoid cramming too much into one panel.
 
 You must respond with ONLY valid JSON (no markdown, no code fences).`;
 
@@ -594,11 +598,13 @@ A bi-fold brochure is folded in HALF, creating 4 panels printed on TWO SIDES of 
 
 OUTSIDE (Page 1 — what you see when the brochure is folded):
   - Panel 1: FRONT COVER (right half) — the first thing people see. Company name, tagline, hero visual area, phone number.
-  - Panel 2: BACK COVER (left half) — contact info, credentials, social media, QR code placeholder.
+  - Panel 2: BACK COVER (left half) — MINIMAL: certifications, phone, website only.
 
 INSIDE (Page 2 — what you see when opened):
-  - Panel 3: LEFT PANEL — first content panel (e.g., About Us, Services overview).
-  - Panel 4: RIGHT PANEL — detailed services, testimonials, or call-to-action.
+  - Panel 3: LEFT PANEL — first content section.
+  - Panel 4: RIGHT PANEL — second content section.
+
+CRITICAL: If the user provided specific panel content, use their EXACT wording and structure.
 
 Generate a JSON object with this exact structure:
 {
@@ -607,39 +613,39 @@ Generate a JSON object with this exact structure:
   "phone": "The phone number provided",
   "website": "The website provided",
   "credentials": ["credential1", "credential2"],
-  "accentColor": "#D4FF00",
+  "accentColor": "#FFD100",
   "outsidePanels": [
     {
       "position": "front_cover",
       "title": "COMPANY NAME",
       "subtitle": "tagline",
-      "body": ["Professional description line"],
-      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY"],
+      "body": ["Key service highlight"],
+      "highlights": ["FREE ESTIMATES"],
       "footer": ""
     },
     {
       "position": "back_cover",
-      "title": "CONTACT US",
+      "title": "COMPANY NAME",
       "subtitle": "",
-      "body": ["Phone: 800-555-1234", "Website: company.com", "Email: info@company.com"],
-      "highlights": ["Licensed • Insured • Bonded"],
-      "footer": "Serving the community since 2010"
+      "body": ["Certification 1", "Certification 2", "Fully Insured"],
+      "highlights": [],
+      "footer": ""
     }
   ],
   "insidePanels": [
     {
       "position": "left_panel",
-      "title": "ABOUT US",
-      "subtitle": "Our Story",
-      "body": ["Description of company", "✔ Key service 1", "✔ Key service 2"],
+      "title": "OUR SERVICES",
+      "subtitle": "",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
       "highlights": [],
       "footer": ""
     },
     {
       "position": "right_panel",
-      "title": "OUR SERVICES",
-      "subtitle": "What We Do",
-      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "title": "GET STARTED",
+      "subtitle": "",
+      "body": ["✔ Service 4", "✔ Service 5"],
       "highlights": ["CALL TODAY"],
       "footer": ""
     }
@@ -648,15 +654,14 @@ Generate a JSON object with this exact structure:
 
 Rules:
 - Create EXACTLY 2 outsidePanels and EXACTLY 2 insidePanels (4 total for a bi-fold)
-- Each panel gets HALF the page — more space for content than tri-fold
 - Front cover: company name prominent, tagline, key credentials, phone
-- Back cover: full contact details, credentials, service area
-- Inside panels: organize ALL services/content across both panels with rich detail
+- Back cover: KEEP CLEAN — certifications, phone, website only. No long content.
+- Inside panels: organize ALL services/content across both panels
 - Use ✔ prefix for service/feature lists, • for sub-items
-- Keep panel titles SHORT and POWERFUL (3-5 words max)
-- Include ALL services, certifications, and details the user mentioned
+- Keep each body item SHORT (under 50 characters)
+- Include ALL services, certifications, details using the user's EXACT wording
 - Do NOT invent info the user did not mention
-- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+- If the user specified an accent color, use it (e.g., "safety yellow" = "#FFD100"). Otherwise default to "#D4FF00".`;
     } else if (format === 'single-page') {
       userPrompt = `Create professional SINGLE-PAGE FLYER content from this description:
 
@@ -677,37 +682,40 @@ Generate a JSON object with this exact structure:
   "phone": "The phone number provided",
   "website": "The website provided",
   "credentials": ["credential1", "credential2"],
-  "accentColor": "#D4FF00",
+  "accentColor": "#FFD100",
   "outsidePanels": [
     {
       "position": "front",
       "title": "COMPANY NAME",
       "subtitle": "tagline",
-      "body": ["Key service highlight", "✔ Service 1", "✔ Service 2", "✔ Service 3"],
-      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY", "CALL NOW"],
+      "body": ["Key service highlight"],
+      "highlights": ["FREE ESTIMATES"],
       "footer": ""
     }
   ],
   "insidePanels": [
     {
       "position": "back",
-      "title": "FULL SERVICE DETAILS",
-      "subtitle": "Everything We Offer",
-      "body": ["✔ Service 1 with description", "✔ Service 2 with description", "✔ Service 3", "Phone: 800-555-1234", "Website: company.com"],
-      "highlights": ["Licensed • Insured • Bonded"],
-      "footer": "Serving the community since 2010"
+      "title": "OUR SERVICES",
+      "subtitle": "",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "highlights": ["Certified • Insured"],
+      "footer": ""
     }
   ]
 }
 
+CRITICAL: If the user provided specific content, use their EXACT wording and structure.
+
 Rules:
 - Create EXACTLY 1 outsidePanel (front) and EXACTLY 1 insidePanel (back) — 2 total
 - Front: maximum visual impact — company name huge, tagline, top services, big CTA
-- Back: detailed service list, testimonials, full credentials, complete contact info
+- Back: detailed service list, credentials, contact info
 - Use ✔ prefix for lists, • for sub-items
-- Include ALL services, certifications, and details the user mentioned
+- Keep each body item SHORT (under 50 characters)
+- Include ALL services, certifications, details using the user's EXACT wording
 - Do NOT invent info the user did not mention
-- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+- If the user specified an accent color, use it (e.g., "safety yellow" = "#FFD100"). Otherwise default to "#D4FF00".`;
     } else {
       userPrompt = `Create professional TRI-FOLD brochure content from this description:
 
@@ -717,13 +725,15 @@ A real tri-fold brochure has TWO SIDES printed on one sheet of paper:
 
 OUTSIDE (Page 1 — what you see when the brochure is folded):
   - Panel 1: FRONT COVER (right third) — the first thing people see. Company name, tagline, hero visual area, phone number.
-  - Panel 2: BACK COVER (center third) — contact info, credentials, map/address, social media, QR code placeholder.
-  - Panel 3: INSIDE FLAP (left third, slightly narrower) — teaser content, special offer, or "Why Choose Us" to entice opening.
+  - Panel 2: BACK COVER (center third) — MINIMAL: company name, certifications list, phone number, website. That's it. Do NOT put services or long descriptions here.
+  - Panel 3: INSIDE FLAP (left third, slightly narrower) — teaser content, "Why Choose Us", key strengths, or a special offer.
 
 INSIDE (Page 2 — what you see when the brochure is opened flat):
-  - Panel 4: INSIDE LEFT — first content panel (e.g., About Us, Our Story, Mission).
-  - Panel 5: INSIDE CENTER — main services/features panel.
-  - Panel 6: INSIDE RIGHT — additional services, testimonials, or call-to-action panel.
+  - Panel 4: INSIDE LEFT — first content section (e.g., Residential Services).
+  - Panel 5: INSIDE CENTER — second content section (e.g., Emergency Response).
+  - Panel 6: INSIDE RIGHT — third content section (e.g., Municipal/Commercial).
+
+CRITICAL: If the user provided SPECIFIC panel content (like exact bullet points, section titles, or panel-by-panel layout), you MUST use their EXACT content and structure. Do NOT rewrite or paraphrase their words. Your job is to fit their content into the JSON format, not rewrite it.
 
 Generate a JSON object with this exact structure:
 {
@@ -732,55 +742,55 @@ Generate a JSON object with this exact structure:
   "phone": "The phone number provided",
   "website": "The website provided",
   "credentials": ["credential1", "credential2"],
-  "accentColor": "#D4FF00",
+  "accentColor": "#FFD100",
   "outsidePanels": [
     {
       "position": "front_cover",
       "title": "COMPANY NAME",
       "subtitle": "tagline",
-      "body": ["Professional description line"],
-      "highlights": ["FREE ESTIMATES", "24/7 EMERGENCY"],
+      "body": ["RESIDENTIAL • COMMERCIAL • MUNICIPAL"],
+      "highlights": ["FREE ESTIMATES"],
       "footer": ""
     },
     {
       "position": "back_cover",
-      "title": "CONTACT US",
+      "title": "VETERAN OWNED & OPERATED",
       "subtitle": "",
-      "body": ["Address line", "Phone: 800-555-1234", "Website: company.com", "Email: info@company.com"],
-      "highlights": ["Licensed • Insured • Bonded"],
-      "footer": "Serving the community since 2010"
+      "body": ["EHAP Certified", "OSHA Certified", "ANSI Compliant", "Fully Insured"],
+      "highlights": [],
+      "footer": ""
     },
     {
       "position": "inside_flap",
       "title": "WHY CHOOSE US",
       "subtitle": "",
       "body": ["✔ Reason 1", "✔ Reason 2", "✔ Reason 3"],
-      "highlights": ["SPECIAL OFFER"],
+      "highlights": ["FREE ESTIMATES"],
       "footer": ""
     }
   ],
   "insidePanels": [
     {
       "position": "inside_left",
-      "title": "ABOUT US",
-      "subtitle": "Our Story",
-      "body": ["Description of company history and mission"],
-      "highlights": [],
+      "title": "RESIDENTIAL SERVICES",
+      "subtitle": "Your Property. Protected.",
+      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3"],
+      "highlights": ["FREE ESTIMATES • FAST SCHEDULING"],
       "footer": ""
     },
     {
       "position": "inside_center",
-      "title": "OUR SERVICES",
-      "subtitle": "What We Do",
-      "body": ["✔ Service 1", "✔ Service 2", "✔ Service 3", "✔ Service 4"],
-      "highlights": ["QUALITY GUARANTEED"],
+      "title": "EMERGENCY RESPONSE",
+      "subtitle": "",
+      "body": ["✔ Rapid Storm Response", "✔ Tree Removal from Structures"],
+      "highlights": ["24/7 STORM RESPONSE"],
       "footer": ""
     },
     {
       "position": "inside_right",
-      "title": "GET STARTED",
-      "subtitle": "Ready to begin?",
-      "body": ["✔ Step 1: Call for free estimate", "✔ Step 2: We assess your needs", "✔ Step 3: Work begins"],
+      "title": "COMMERCIAL SERVICES",
+      "subtitle": "Power. Precision. Performance.",
+      "body": ["✔ Municipality support", "✔ Government contracts"],
       "highlights": ["CALL TODAY"],
       "footer": ""
     }
@@ -789,16 +799,17 @@ Generate a JSON object with this exact structure:
 
 Rules:
 - Create EXACTLY 3 outsidePanels and EXACTLY 3 insidePanels (6 total for a proper tri-fold)
-- Front cover: company name prominent, tagline, key credentials, phone number
-- Back cover: full contact details, credentials list, service area, social media placeholders
-- Inside flap: teaser to entice reader to open — "Why Choose Us" or a special offer
-- Inside panels: organize services/content logically across all 3 inside panels
+- Front cover: company name LARGE, tagline, key credentials, phone number
+- Back cover: KEEP IT CLEAN — just title, certifications list, phone, website. Maximum 4-5 short body items. NO services list on back.
+- Inside flap: teaser to entice reader to open — strengths or special offer
+- Inside panels: organize services/content logically across all 3 inside panels. Follow user's exact section structure if provided.
 - Use ✔ prefix for service/feature lists
 - Use • prefix for sub-items
+- Keep each body item SHORT (under 50 characters). Split long sentences into multiple items.
 - Keep panel titles SHORT and POWERFUL (3-5 words max)
-- Include ALL services, certifications, and details the user mentioned
+- Include ALL services, certifications, and details the user mentioned using their EXACT wording
 - Do NOT invent services, phone numbers, or certifications the user did not mention
-- If the user specified an accent color, use it. Otherwise default to #D4FF00.`;
+- If the user specified an accent color or color scheme, use it. Map "safety yellow" or "neon yellow" to "#FFD100". Otherwise default to "#D4FF00".`;
     }
 
     const response = await this.openai.chat.completions.create({
@@ -807,8 +818,8 @@ Rules:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.5,
-      max_tokens: 3000,
+      temperature: 0.4,
+      max_tokens: 4000,
     });
 
     const content = response.choices[0].message.content || '{}';
@@ -873,11 +884,40 @@ Rules:
 
     try {
       const stripTextConcepts = (p: string) => {
-        return p.replace(/\b(brochure|tri-fold|trifold|flyer|pamphlet|booklet|menu|listing|headline|heading|title|subtitle|caption|label|tagline|slogan|bullet point|bullet list|contact info|phone number|address|email|URL|website|QR code|coupon|discount code|pricing|price list|service list|testimonial quote|review text|certification badge|logo text|banner text|sign text|panel|residential|commercial|emergency)\b/gi, '')
+        return p.replace(/\b(brochure|tri-fold|trifold|flyer|pamphlet|booklet|menu|listing|headline|heading|title|subtitle|caption|label|tagline|slogan|bullet point|bullet list|contact info|phone number|address|email|URL|website|QR code|coupon|discount code|pricing|price list|service list|testimonial quote|review text|certification badge|logo text|banner text|sign text|panel)\b/gi, '')
           .replace(/\s{2,}/g, ' ').trim();
       };
+
+      const extractImageSubjects = (p: string): string => {
+        const subjectPatterns = [
+          /bucket\s*truck/gi, /crane/gi, /tree\s*removal/gi, /tree\s*trimming/gi,
+          /storm\s*damage/gi, /fallen\s*tree/gi, /debris/gi, /chainsaw/gi,
+          /stump\s*grind/gi, /land\s*clear/gi, /forestry/gi, /mulch/gi,
+          /roof/gi, /construction/gi, /excavat/gi, /demolit/gi,
+          /pressure\s*wash/gi, /paint/gi, /plumb/gi, /electric/gi,
+          /hvac/gi, /landscap/gi, /concrete/gi, /pav/gi,
+          /river/gi, /swamp/gi, /waterway/gi, /flood/gi,
+          /utility\s*line/gi, /power\s*line/gi, /right.of.way/gi,
+          /hurricane/gi, /tornado/gi, /emergency/gi, /restoration/gi,
+          /residential/gi, /commercial/gi, /municipal/gi,
+        ];
+        const found: string[] = [];
+        for (const pat of subjectPatterns) {
+          const matches = p.match(pat);
+          if (matches) {
+            matches.forEach(m => {
+              const clean = m.trim().toLowerCase();
+              if (!found.includes(clean)) found.push(clean);
+            });
+          }
+        }
+        return found.length > 0 ? found.slice(0, 5).join(', ') : '';
+      };
+
       const sceneDesc = stripTextConcepts(prompt);
-      const heroPrompt = `Cinematic black and white dramatic scene related to: ${sceneDesc}. Professional photojournalism style, high contrast shadows, dramatic lighting, powerful composition. This is a SINGLE HERO PHOTOGRAPH to be used as a background visual. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text — not even a single letter. Only render the photographic scene.`;
+      const subjects = extractImageSubjects(prompt);
+      const subjectClause = subjects ? `showing ${subjects}` : '';
+      const heroPrompt = `Cinematic black and white dramatic photograph ${subjectClause}. Professional photojournalism style, high contrast black and white, dramatic shadows and lighting, powerful composition. Shot like an award-winning documentary photograph. This is a SINGLE HERO PHOTOGRAPH to be used as a background visual. Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, or ANY written characters. The image must contain ZERO text — not even a single letter. Only render the photographic scene.`;
 
       const imgResponse = await this.openai.images.generate({
         model: 'dall-e-3',
