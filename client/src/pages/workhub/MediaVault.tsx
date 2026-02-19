@@ -1313,7 +1313,7 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `flyer-${Date.now()}.png`;
+                        a.download = `${result.videoConcept ? 'video-thumbnail' : 'flyer'}-${Date.now()}.png`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
@@ -1322,34 +1322,55 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                       } catch {
                         const a = document.createElement('a');
                         a.href = result.imageUrl!;
-                        a.download = `flyer-${Date.now()}.png`;
+                        a.download = `${result.videoConcept ? 'video-thumbnail' : 'flyer'}-${Date.now()}.png`;
                         a.click();
                       }
                     }}>
-                      <Download className="w-3.5 h-3.5 mr-1.5" />Download Flyer
+                      <Download className="w-3.5 h-3.5 mr-1.5" />{result.videoConcept ? 'Download Thumbnail' : 'Download Image'}
                     </Button>
                   )}
                   <Button size="sm" variant="outline" onClick={() => {
                     let content = '';
-                    if (result.headlines?.length) content += result.headlines.join('\n') + '\n\n';
-                    if (result.adCopy) content += result.adCopy + '\n\n';
-                    if (result.callToAction) content += 'CTA: ' + result.callToAction + '\n\n';
+                    if (result.headlines?.length) {
+                      content += 'HEADLINES\n' + '='.repeat(40) + '\n';
+                      content += result.headlines.join('\n') + '\n\n';
+                    }
+                    if (result.adCopy) {
+                      content += 'AD COPY\n' + '='.repeat(40) + '\n';
+                      content += result.adCopy + '\n\n';
+                    }
+                    if (result.callToAction) content += 'CALL TO ACTION: ' + result.callToAction + '\n\n';
                     if (result.videoConcept) {
-                      content += 'VIDEO STORYBOARD\n';
+                      content += 'VIDEO STORYBOARD\n' + '='.repeat(40) + '\n';
+                      content += `Style: ${result.videoConcept.style || 'N/A'}\n`;
+                      content += `Duration: ${result.videoConcept.totalDuration || 'N/A'}\n`;
+                      content += `Music: ${result.videoConcept.music || 'N/A'}\n\n`;
                       result.videoConcept.scenes?.forEach((s, i) => {
-                        content += `Scene ${i+1} (${s.duration}): ${s.description}\nVO: "${s.voiceover}"\n\n`;
+                        content += `--- Scene ${i+1} (${s.duration}) ---\n`;
+                        content += `Visual: ${s.description}\n`;
+                        content += `Voiceover: "${s.voiceover}"\n`;
+                        if (s.visualNotes) content += `Notes: ${s.visualNotes}\n`;
+                        content += '\n';
                       });
                     }
-                    if (result.hashtags?.length) content += result.hashtags.join(' ') + '\n';
+                    if (result.videoScript) {
+                      content += 'FULL SCRIPT\n' + '='.repeat(40) + '\n';
+                      content += result.videoScript + '\n\n';
+                    }
+                    if (result.hashtags?.length) {
+                      content += 'HASHTAGS\n' + '='.repeat(40) + '\n';
+                      content += result.hashtags.join(' ') + '\n';
+                    }
                     const blob = new Blob([content], { type: 'text/plain' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `creative-content-${Date.now()}.txt`;
+                    a.download = `${result.videoConcept ? 'video-storyboard' : 'creative-content'}-${Date.now()}.txt`;
                     a.click();
                     URL.revokeObjectURL(url);
+                    toast({ title: "Downloaded!", description: result.videoConcept ? "Storyboard saved to downloads." : "Content saved to downloads." });
                   }}>
-                    <FileText className="w-3.5 h-3.5 mr-1.5" />Download Content
+                    <FileText className="w-3.5 h-3.5 mr-1.5" />{result.videoConcept ? 'Download Storyboard' : 'Download Content'}
                   </Button>
                 </div>
                 <div className="flex gap-2 mb-3">

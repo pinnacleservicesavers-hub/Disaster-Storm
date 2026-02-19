@@ -53,6 +53,7 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [downloadAfterPrepare, setDownloadAfterPrepare] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
   const pausedAtRef = useRef<number>(0);
@@ -423,6 +424,13 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
   }, [loadedImage, audioSrc, drawFrame, totalDuration, toast]);
 
   useEffect(() => {
+    if (downloadAfterPrepare && isPrepared && !isPreparing && !isRecording) {
+      setDownloadAfterPrepare(false);
+      setTimeout(() => downloadVideo(), 300);
+    }
+  }, [downloadAfterPrepare, isPrepared, isPreparing, isRecording, downloadVideo]);
+
+  useEffect(() => {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       if (audioRef.current) {
@@ -553,12 +561,25 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
             {Math.floor(currentTime)}s / {totalDuration}s
           </span>
 
-          {isPrepared && (
+          {isPrepared ? (
             <Button size="sm" variant="outline" onClick={downloadVideo} disabled={isRecording || !loadedImage}>
               {isRecording ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Recording...</> : <><Download className="w-3.5 h-3.5 mr-1" />Download Video</>}
             </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => {
+              setDownloadAfterPrepare(true);
+              prepareVideo();
+            }} disabled={isPreparing || !loadedImage}>
+              {isPreparing ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Preparing...</> : <><Download className="w-3.5 h-3.5 mr-1" />Download Video</>}
+            </Button>
           )}
         </div>
+
+        {!isPrepared && !isPreparing && (
+          <div className="p-2.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+            <p className="text-xs text-slate-600 dark:text-slate-400 text-center">Click <strong>Download Video</strong> to generate voiceover and record your video ad for download</p>
+          </div>
+        )}
 
         {currentScene && isPlaying && (
           <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
