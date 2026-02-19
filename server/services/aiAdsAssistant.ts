@@ -458,32 +458,42 @@ Make it exceptional. Make it unforgettable.`;
     }
 
     if (request.includeImage !== false) {
+      const stripTextConcepts = (p: string) => {
+        return p.replace(/\b(brochure|tri-fold|trifold|flyer|pamphlet|booklet|menu|listing|headline|heading|title|subtitle|caption|label|tagline|slogan|bullet point|bullet list|contact info|phone number|address|email|URL|website|QR code|coupon|discount code|pricing|price list|service list|testimonial quote|review text|certification badge|logo text|banner text|sign text)\b/gi, '')
+          .replace(/\s{2,}/g, ' ').trim();
+      };
+      const cleanedPrompt = stripTextConcepts(request.prompt);
+
+      const noTextRule = `ABSOLUTE RULE — ZERO TEXT IN IMAGE: This image is a HERO PHOTOGRAPH ONLY — it will be used as a background visual. ALL text, copy, headlines, and information will be added separately in a design tool AFTER this image is created. Therefore: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, banners, labels, captions, phone numbers, URLs, titles, headings, bullet points, price tags, badges, certificates, stamps, seals, or ANY written characters whatsoever in the image. The image must contain ZERO text elements — not even a single letter, number, or symbol. Render ONLY the photographic scene with people, objects, and environments. Any text in the image is an automatic failure.`;
+
       try {
         const isComicalStyle = request.style === 'comical';
         const isAnimatedStyle = request.style === 'animated' || isAnimated;
-        
+
         let imagePrompt: string;
         if (isAnimatedStyle) {
-          imagePrompt = `Create a vibrant, colorful ANIMATED CARTOON illustration for an ad about: ${request.prompt}. 
+          imagePrompt = `Create a vibrant, colorful ANIMATED CARTOON illustration showing the SCENE described here: ${cleanedPrompt}. 
 Style: Pixar/Disney-quality 3D animated look, bright saturated colors, fun character designs, exaggerated proportions.
 - Characters should be appealing cartoon versions with expressive faces
 - Use bold colors, clean lines, and dynamic poses
 - Make it look like a frame from a premium animated commercial
 - Fun, energetic, family-friendly cartoon aesthetic
-ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only illustrations and graphics. Text will be overlaid separately. If the image contains even a single letter or number it is a failure.`;
+- DO NOT create a layout, poster, or document — create ONLY a single scene illustration
+${noTextRule}`;
         } else if (isComicalStyle) {
-          imagePrompt = `Create a FUNNY, HUMOROUS advertising image for: ${request.prompt}. 
+          imagePrompt = `Create a FUNNY, HUMOROUS photograph or illustration showing the SCENE described here: ${cleanedPrompt}. 
 Style: Comedic, witty, makes people laugh out loud.
 - Use visual humor, funny situations, exaggerated expressions, or absurd scenarios
 - Think of the funniest Super Bowl commercial ever — that energy
 - Keep it clean humor but genuinely funny, not corny
 - Bright, eye-catching colors that make people stop scrolling
-- Can be slightly cartoonish or illustrated if it makes it funnier
-ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only photos, illustrations, and graphics. Text will be overlaid separately in post-production. If the image contains even a single letter or number it is a failure.`;
+- DO NOT create a layout, poster, or document — create ONLY a single scene image
+${noTextRule}`;
         } else {
-          imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC advertising photo for: ${request.prompt}. 
+          imagePrompt = `Create a REALISTIC, PHOTOJOURNALISTIC hero photograph showing the SCENE described here: ${cleanedPrompt}. 
 Style: ${request.style || 'Professional documentary-style photography'}.
 CRITICAL PHOTOGRAPHY RULES:
+- This is a SINGLE HERO PHOTOGRAPH — NOT a brochure, NOT a layout, NOT a document, NOT a poster
 - This must look like a REAL PHOTOGRAPH taken by a professional photographer on a job site or location
 - Use natural daylight lighting, real-world environments, realistic human proportions and clothing
 - Workers should wear standard industry PPE (hard hats, safety vests, work boots) — NOT sci-fi or fantasy gear
@@ -493,7 +503,8 @@ CRITICAL PHOTOGRAPHY RULES:
 - NO robotic, cyborg, or otherworldly imagery
 - Think National Geographic photographer documenting real contractor work
 - Professional composition with depth of field, natural colors, realistic textures
-ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, labels, phone numbers, URLs, captions, titles, headings, bullet points, or ANY written characters whatsoever in the image. The image must be PURELY VISUAL — only photos, illustrations, and graphics. Text will be overlaid separately in post-production. If the image contains even a single letter or number it is a failure.`;
+- DO NOT create any layout, grid, panels, columns, sections, or multi-panel design
+${noTextRule}`;
         }
         
         const imgResponse = await this.openai.images.generate({
@@ -514,7 +525,7 @@ ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, lo
           });
           const imgResponse = await replitOpenai.images.generate({
             model: 'gpt-image-1',
-            prompt: `Realistic professional photography for: ${request.prompt}. ${request.style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph — natural daylight, real people in standard work gear (hard hats, safety vests), real job sites. NO fantasy, sci-fi, neon, or surreal elements. Think photojournalism. ABSOLUTE RULE — ZERO TEXT: Do NOT render ANY text, words, letters, numbers, logos, watermarks, typography, signage, or ANY written characters in the image. Purely visual only.`,
+            prompt: `Realistic professional hero photograph showing the scene for: ${cleanedPrompt}. ${request.style || 'Documentary-style, natural lighting'}. Must look like a REAL photograph — natural daylight, real people in standard work gear, real job sites. This is a SINGLE PHOTO, not a brochure or layout. NO fantasy, sci-fi, neon, or surreal elements. Think photojournalism. ${noTextRule}`,
             n: 1,
             size: '1024x1024',
           });
