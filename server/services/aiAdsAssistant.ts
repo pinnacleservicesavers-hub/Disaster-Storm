@@ -575,15 +575,18 @@ ${noTextRule}`;
   async generateBrochure(prompt: string, format: string = 'tri-fold', paperSize: string = 'letter'): Promise<any> {
     const systemPrompt = `You are an expert brochure designer and copywriter. You create professional, typo-free brochure content for businesses. Your job is to extract the business information from the user's description and organize it into clean brochure panels.
 
+IMPORTANT: Users may provide highly detailed, formatted instructions (with headers, emojis, bullet points, style commands, etc.). Your job is to EXTRACT the actual content (company name, services, phone, credentials, panel content) from whatever format they use, and faithfully put it into the JSON structure. Ignore formatting instructions about colors, overlays, image styles, typography, and visual design — those are handled by the rendering engine. Focus ONLY on extracting the TEXT CONTENT for each panel.
+
 CRITICAL QUALITY RULES:
 - PERFECT SPELLING: Triple-check every word. Zero typos. This will be printed and distributed.
 - PERFECT GRAMMAR: Every sentence must be grammatically flawless.
 - USE ONLY THE INFORMATION PROVIDED: Do not invent phone numbers, websites, certifications, or services the user did not mention.
 - PROFESSIONAL TONE: Clean, authoritative, trustworthy language.
-- FOLLOW USER INSTRUCTIONS EXACTLY: If the user provides specific panel-by-panel content, use their EXACT wording, panel titles, bullet points, and structure. Do NOT rewrite, rephrase, reorder, or paraphrase their content. Your job is to organize their content into the JSON structure, not to rewrite it.
+- FOLLOW USER INSTRUCTIONS EXACTLY: If the user provides specific panel-by-panel content (like "INSIDE PANEL 1 - RESIDENTIAL SERVICES"), use their EXACT wording, panel titles, bullet points, section headings, and structure. Do NOT rewrite, rephrase, reorder, or paraphrase their content. Your job is to organize their content into the JSON structure, not to rewrite it.
 - ACCENT COLOR: If the user specifies a color (like safety yellow, neon yellow, etc.), use their exact hex code. Common mappings: "safety yellow" or "neon yellow" = "#FFD100", "red" = "#FF0000", "blue" = "#0066CC". Only default to "#D4FF00" if NO color is mentioned at all.
 - BACK PANEL: Keep the back cover panel CLEAN and MINIMAL. Only include: company name/title, key certifications (short list), phone number, and website. Do NOT overload the back panel with services or long descriptions — the inside panels are for detailed content.
 - BODY ITEMS: Each body item should be a SHORT line (under 60 characters). Long paragraphs should be split into multiple body items. Avoid cramming too much into one panel.
+- TAGLINE: If the user provides a specific tagline or motto, use it EXACTLY. Look for lines like "tagline:", "motto:", or prominent standalone phrases in quotes.
 
 You must respond with ONLY valid JSON (no markdown, no code fences).`;
 

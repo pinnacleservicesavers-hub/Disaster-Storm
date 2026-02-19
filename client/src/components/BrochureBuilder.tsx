@@ -228,7 +228,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
           style={{
             width: panelWidth,
             minHeight: '480px',
-            backgroundColor: '#0a0a0a',
+            background: 'linear-gradient(180deg, #1a1a1a 0%, #111111 40%, #0d0d0d 100%)',
           }}
         >
           {data?.heroImageUrl && (
@@ -236,41 +236,46 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
               backgroundImage: `url(${data.heroImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              opacity: 0.45,
-              filter: 'grayscale(100%) contrast(1.2)',
+              opacity: 0.55,
+              filter: 'grayscale(100%) contrast(1.15)',
             }} />
           )}
           <div className="absolute inset-0" style={{
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.95) 100%)',
+            background: 'linear-gradient(180deg, rgba(17,17,17,0.3) 0%, rgba(14,14,14,0.55) 50%, rgba(11,11,11,0.85) 100%)',
           }} />
           <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: '480px' }}>
             <div className="flex-1 flex flex-col justify-center items-center text-center">
-              <h1 className="text-xl font-black text-white tracking-wider mb-2 uppercase" style={{ letterSpacing: '0.15em' }}>
+              <h1 className="text-xl font-black text-white tracking-wider mb-2 uppercase" style={{ letterSpacing: '0.15em', textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
                 {data?.companyName}
               </h1>
-              <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+              <div className="flex flex-wrap justify-center gap-1.5 mb-3">
                 {data?.credentials.map((cred, ci) => (
                   <span key={ci} className="text-[9px] font-semibold tracking-widest uppercase" style={{ color: accentColor }}>
                     {ci > 0 && <span className="mx-1">·</span>}{cred}
                   </span>
                 ))}
               </div>
-              <div className="w-12 h-0.5 mb-4" style={{ backgroundColor: accentColor }} />
-              <p className="text-base font-bold tracking-[0.18em] uppercase mb-6" style={{ color: accentColor }}>
+              <div className="w-12 h-0.5 mb-3" style={{ backgroundColor: accentColor }} />
+              {panel.body && panel.body.length > 0 && (
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/90 mb-3">
+                  {panel.body[0]}
+                </p>
+              )}
+              <p className="text-base font-bold tracking-[0.18em] uppercase mb-4" style={{ color: accentColor, textShadow: `0 0 20px ${accentColor}33` }}>
                 {data?.tagline}
               </p>
               {panel.highlights && panel.highlights.length > 0 && (
                 <div className="mb-4 space-y-1">
                   {panel.highlights.map((h, hi) => (
-                    <p key={hi} className="text-xs font-bold tracking-wider uppercase" style={{ color: accentColor }}>{h}</p>
+                    <p key={hi} className="text-xs font-bold tracking-wider uppercase" style={{ color: accentColor, textShadow: `0 0 12px ${accentColor}44` }}>{h}</p>
                   ))}
                 </div>
               )}
             </div>
-            <div className="text-center space-y-1 mt-auto pt-3 border-t border-white/10">
+            <div className="text-center space-y-1.5 mt-auto pt-3 border-t border-white/10">
               <div className="flex items-center justify-center gap-2">
                 <Phone className="w-3.5 h-3.5" style={{ color: accentColor }} />
-                <span className="text-lg font-black text-white tracking-wider">{data?.phone}</span>
+                <span className="text-lg font-black tracking-wider" style={{ color: accentColor, textShadow: `0 0 16px ${accentColor}33` }}>{data?.phone}</span>
               </div>
               <div className="flex items-center justify-center gap-1.5">
                 <Globe className="w-3 h-3" style={{ color: accentColor }} />
@@ -289,7 +294,7 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
         style={{
           width: panelWidth,
           minHeight: '480px',
-          backgroundColor: '#0a0a0a',
+          background: 'linear-gradient(180deg, #1c1c1c 0%, #141414 50%, #111111 100%)',
         }}
       >
         {data?.heroImageUrl && (
@@ -297,12 +302,13 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             backgroundImage: `url(${data.heroImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: 0.12,
-            filter: 'grayscale(100%) contrast(1.2)',
+            opacity: 0.18,
+            filter: 'grayscale(100%) contrast(1.1)',
+            mixBlendMode: 'luminosity' as any,
           }} />
         )}
         <div className="absolute inset-0" style={{
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.96) 100%)',
+          background: 'linear-gradient(180deg, rgba(28,28,28,0.75) 0%, rgba(17,17,17,0.88) 60%, rgba(14,14,14,0.92) 100%)',
         }} />
         <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: '480px' }}>
           <div className="mb-3">
@@ -332,14 +338,14 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
             })}
           </div>
           {panel.highlights && panel.highlights.length > 0 && (
-            <div className="mt-3 pt-2 border-t border-slate-700/50 space-y-0.5">
+            <div className="mt-3 pt-2 border-t border-white/8 space-y-0.5">
               {panel.highlights.map((h, hi) => (
-                <p key={hi} className="text-[9px] font-bold tracking-wider uppercase" style={{ color: accentColor }}>{h}</p>
+                <p key={hi} className="text-[9px] font-bold tracking-wider uppercase" style={{ color: accentColor, textShadow: `0 0 10px ${accentColor}33` }}>{h}</p>
               ))}
             </div>
           )}
           {panel.footer && (
-            <div className="mt-2 pt-1.5 border-t border-slate-700/30">
+            <div className="mt-2 pt-1.5 border-t border-white/5">
               <p className="text-[9px] text-slate-400 leading-relaxed">{panel.footer}</p>
             </div>
           )}

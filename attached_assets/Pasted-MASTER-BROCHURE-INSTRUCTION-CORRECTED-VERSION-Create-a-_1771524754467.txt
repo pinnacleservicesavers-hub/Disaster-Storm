@@ -1,0 +1,239 @@
+MASTER BROCHURE INSTRUCTION (CORRECTED VERSION)
+
+Create a high-end, cinematic TRI-FOLD brochure (6 panels, US Letter).
+
+This brochure must feel:
+
+Elite
+Storm-tested
+Professional
+Powerful
+Trustworthy
+Emergency-ready
+Service Disabled Veteran-Owned strength
+
+🎨 CRITICAL COLOR RULES (READ CAREFULLY)
+
+❌ DO NOT use solid black backgrounds
+❌ DO NOT use pure #000000 panels
+❌ DO NOT use heavy dark overlays
+
+Instead:
+
+Use rich black & white photographic grayscale.
+
+Dark tones must be charcoal gray (#111111–#1C1C1C), not flat black.
+
+Preserve shadow detail and image texture.
+
+Maintain visible lighting gradients.
+
+Use cinematic black-and-white contrast like fine art landscape photography.
+
+Accent Color:
+Safety Neon Yellow #FFD100
+
+Yellow must be:
+• Bright
+• High saturation
+• Clean neon tone
+• Not gold
+• Not mustard
+
+Use yellow ONLY for:
+• Phone number
+• FREE ESTIMATES
+• 24/7
+• Emergency headlines
+• Thin divider lines
+• Small accent highlights
+
+No large yellow blocks.
+
+🖼 IMAGE STYLE
+
+Use dramatic black & white photography with depth and lighting.
+
+Images must feel:
+• Cinematic
+• High contrast
+• Professional
+• Real
+• Textured
+
+Include subtle watermark-style imagery (low opacity 10–18%, soft blend mode):
+
+Residential Panel:
+Bucket truck in driveway
+
+Emergency Panel:
+Crane lifting large tree from structure
+
+Commercial Panel:
+Utility line clearance near power lines
+
+Watermarks must:
+• Be visible but subtle
+• Not turn into black silhouettes
+• Not be lost in shadows
+• Blend softly into grayscale background
+
+📄 TRI-FOLD CONTENT STRUCTURE
+🔲 FRONT COVER
+
+Background:
+Cinematic black & white tree removal scene with visible lighting and depth.
+No solid black fill.
+
+Main Header (White, bold modern sans-serif like Montserrat / Oswald / Bebas Neue):
+
+STRATEGIC LAND MANAGEMENT
+
+Thin neon yellow divider line underneath.
+
+Subheading (white):
+
+RESIDENTIAL • COMMERCIAL • MUNICIPAL
+
+Large yellow highlight text:
+
+FREE ESTIMATES
+
+Optional tagline (white):
+
+WHEN TREES FALL — WE RISE.
+
+Bottom (yellow phone, white website):
+
+📞 800-628-2229
+🌐 strategiclandmgmt.com
+
+Add subtle soft yellow glow behind phone number only.
+
+🔲 INSIDE PANEL 1 – RESIDENTIAL SERVICES
+
+Header (white):
+
+YOUR PROPERTY. PROTECTED.
+
+Watermark:
+Bucket truck in residential driveway (subtle grayscale).
+
+Services:
+
+✔ Tree Removal
+✔ Tree Trimming
+✔ Land Clearing
+✔ Forestry Mulching
+✔ Stump Grinding
+✔ Debris Haul-Off
+
+Text:
+
+We treat your property like our own.
+
+FREE ESTIMATES. FAST SCHEDULING. PROFESSIONAL CREWS.
+
+Underline FREE ESTIMATES with thin neon yellow line.
+
+🔲 INSIDE PANEL 2 – EMERGENCY RESPONSE
+
+Background:
+Black & white storm damage photography (visible detail).
+
+Watermark:
+Crane lifting large tree from home.
+
+Header in neon yellow:
+
+EMERGENCY TREE REMOVAL
+
+Body:
+
+When disaster strikes, you shouldn't carry the burden alone.
+
+We understand you were not expecting this unforeseen event.
+
+We step in immediately.
+
+✔ Rapid Storm Response
+✔ Tree Removal from Homes & Structures
+✔ Little to No Cost to Homeowner (when covered by insurance)
+✔ We Handle the Insurance Claim Process
+
+Closing lines:
+
+Let us remove the trees.
+Let us handle the paperwork.
+You focus on what matters most.
+
+Highlight in neon yellow:
+
+24/7 STORM RESPONSE AVAILABLE
+
+🔲 INSIDE PANEL 3 – MUNICIPAL & COMMERCIAL
+
+Header (white):
+
+POWER. PRECISION. PERFORMANCE.
+
+Watermark:
+Utility line work near power lines.
+
+We proudly support:
+
+✔ Municipalities
+✔ Utility Providers
+✔ Commercial Properties
+✔ Government Contracts
+
+Specializing in:
+
+• Right-of-Way Vegetation Clearance
+• Leaner & Hanger Removal
+• River & Swamp Debris Clearing
+• Storm Waterway Cleanup
+• Hurricane & Tornado Recovery
+• Boat Recovery from Rivers & Lakes
+
+We have the equipment.
+We have the crews.
+We have the experience.
+
+🔲 BACK PANEL
+
+Background:
+Textured black & white tree image with visible shadows and depth.
+
+Headline (white):
+
+VETERAN OWNED & OPERATED
+
+Certifications:
+
+EHAP Certified
+OSHA Certified
+ANSI Compliant
+Fully Insured
+
+Bottom:
+Bold neon yellow accent bar (thin, not full panel fill).
+
+📞 800-628-2229
+🌐 strategiclandmgmt.com
+
+🔥 FINAL STYLE COMMANDS TO PREVENT JET BLACK
+
+Add this EXACTLY at the end of your AI prompt:
+
+STYLE CORRECTION:
+No solid black panels.
+No pure #000000 backgrounds.
+Use dark charcoal grayscale with visible shadow detail.
+Maintain dynamic range.
+Preserve photographic depth.
+Maximum overlay opacity 60%.
+Cinematic black & white photography style.
+Neon yellow #FFD100 accents only.
+
+If this still prints too dark, I can give you a version specifically tuned for the print engine (because glossy print compresses shadows).

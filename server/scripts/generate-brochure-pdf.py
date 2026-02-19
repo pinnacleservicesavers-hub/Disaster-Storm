@@ -108,12 +108,16 @@ def render_panel(panel, accent, is_front=False, company='', tagline='', phone=''
     cls = f' {extra_class}' if extra_class else ''
 
     if is_front:
+        body_line = ''
+        if body and len(body) > 0:
+            body_line = f'<p class="front-body-line">{escape_html(body[0])}</p>'
         return f'''
         <div class="panel front-panel{cls}">
             <div class="front-content">
                 <h1 class="company-name">{escape_html(company)}</h1>
                 <div class="credentials">{creds_html}</div>
                 <div class="accent-line"></div>
+                {body_line}
                 <p class="tagline">{escape_html(tagline)}</p>
                 {render_highlights(highlights)}
             </div>
@@ -377,7 +381,7 @@ def build_html(accent, bg_css, page_w, page_h, body_html, extra_css=''):
 
 body {{
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    background: #000;
+    background: #111111;
     color: #fff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -407,8 +411,8 @@ body {{
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     {bg_css}
-    filter: grayscale(100%) contrast(1.2);
-    opacity: 0.12;
+    filter: grayscale(100%) contrast(1.1);
+    opacity: 0.18;
 }}
 
 .fold-line {{
@@ -438,7 +442,7 @@ body {{
 }}
 
 .front-panel {{
-    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.95) 100%);
+    background: linear-gradient(180deg, rgba(26,26,26,0.3) 0%, rgba(17,17,17,0.55) 50%, rgba(14,14,14,0.85) 100%);
     text-align: center;
     justify-content: center;
     align-items: center;
@@ -483,6 +487,16 @@ body {{
     margin: 14px auto;
 }}
 
+.front-body-line {{
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 14px;
+    line-height: 1.3;
+}}
+
 .tagline {{
     font-size: 12pt;
     font-weight: 800;
@@ -501,7 +515,7 @@ body {{
 .phone {{
     font-size: 14pt;
     font-weight: 900;
-    color: #fff;
+    color: {accent};
     letter-spacing: 0.08em;
     margin-bottom: 3px;
 }}
@@ -513,7 +527,7 @@ body {{
 }}
 
 .content-panel {{
-    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.96) 100%);
+    background: linear-gradient(180deg, rgba(28,28,28,0.75) 0%, rgba(17,17,17,0.88) 60%, rgba(14,14,14,0.92) 100%);
 }}
 
 .panel-header {{
