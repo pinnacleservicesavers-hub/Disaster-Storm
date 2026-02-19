@@ -157,22 +157,26 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
     }
   };
 
+  const generatePDFBlob = useCallback(async (): Promise<Blob | null> => {
+    if (!brochureData) return null;
+    const response = await fetch('/api/ai-ads/brochure-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brochureData, format, paperSize }),
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'PDF generation failed');
+    }
+    return response.blob();
+  }, [brochureData, format, paperSize]);
+
   const downloadPDF = useCallback(async () => {
     if (!brochureData) return;
     setIsDownloading(true);
     try {
-      const response = await fetch('/api/ai-ads/brochure-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brochureData, format, paperSize }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'PDF generation failed');
-      }
-
-      const blob = await response.blob();
+      const blob = await generatePDFBlob();
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -194,7 +198,33 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
       toast({ title: "Download failed", description: err.message || "Try again", variant: "destructive" });
     }
     setIsDownloading(false);
-  }, [brochureData, format, paperSize, paperType, toast]);
+  }, [brochureData, format, paperSize, paperType, toast, generatePDFBlob]);
+
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const printBrochure = useCallback(async () => {
+    if (!brochureData) return;
+    setIsPrinting(true);
+    try {
+      const blob = await generatePDFBlob();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          setTimeout(() => printWindow.print(), 500);
+        });
+      }
+      toast({
+        title: "Print dialog opening...",
+        description: `Set your printer to landscape orientation and ${PAPER_SIZES[paperSize].label} paper size.`
+      });
+    } catch (err: any) {
+      console.error('Print error:', err);
+      toast({ title: "Print failed", description: err.message || "Try again", variant: "destructive" });
+    }
+    setIsPrinting(false);
+  }, [brochureData, generatePDFBlob, paperSize, toast]);
 
   const data = isEditing ? editData : brochureData;
   const currentPanels = data ? (activeSide === 'outside' ? data.outsidePanels : data.insidePanels) : [];
@@ -555,7 +585,11 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
                   </Button>
                   <Button size="sm" onClick={downloadPDF} disabled={isDownloading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                     {isDownloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
-                    Download Print-Ready PDF
+                    Download PDF
+                  </Button>
+                  <Button size="sm" onClick={printBrochure} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                    {isPrinting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Printer className="w-4 h-4 mr-1" />}
+                    Print
                   </Button>
                   <Button
                     size="sm"

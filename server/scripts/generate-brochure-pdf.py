@@ -380,7 +380,7 @@ def build_html(accent, bg_css, page_w, page_h, body_html, extra_css=''):
 <meta charset="UTF-8">
 <style>
 @page {{
-    size: {page_w}in {page_h}in landscape;
+    size: {page_w}in {page_h}in;
     margin: 0;
 }}
 
