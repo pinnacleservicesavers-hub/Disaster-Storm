@@ -1,5 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { aiAdsAssistant } from "../services/aiAdsAssistant";
+import { spawn } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
 export function registerAIAdsRoutes(app: Express) {
   
@@ -180,6 +184,75 @@ export function registerAIAdsRoutes(app: Express) {
     } catch (error) {
       console.error('Error generating brochure:', error);
       res.status(500).json({ error: 'Failed to generate brochure', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.post('/api/ai-ads/brochure-pdf', async (req: Request, res: Response) => {
+    const tmpFile = path.join(os.tmpdir(), `brochure-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+    let childProcess: ReturnType<typeof spawn> | null = null;
+
+    const cleanup = () => {
+      try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch {}
+    };
+
+    try {
+      const { brochureData } = req.body;
+      if (!brochureData || !brochureData.panels || !Array.isArray(brochureData.panels)) {
+        return res.status(400).json({ error: 'Valid brochure data with panels is required' });
+      }
+      if (brochureData.panels.length > 10) {
+        return res.status(400).json({ error: 'Maximum 10 panels allowed' });
+      }
+
+      const inputJson = JSON.stringify(brochureData);
+      if (inputJson.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: 'Brochure data too large' });
+      }
+
+      const scriptPath = path.join(process.cwd(), 'server', 'scripts', 'generate-brochure-pdf.py');
+
+      childProcess = spawn('python3', [scriptPath, tmpFile], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let stderr = '';
+      childProcess.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      childProcess.stdin.write(inputJson);
+      childProcess.stdin.end();
+
+      const timeout = 45000;
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          childProcess?.kill('SIGKILL');
+          reject(new Error('PDF generation timed out'));
+        }, timeout);
+
+        childProcess!.on('close', (code) => {
+          clearTimeout(timer);
+          if (code === 0) resolve();
+          else reject(new Error(`PDF generation failed (code ${code}): ${stderr.slice(0, 500)}`));
+        });
+        childProcess!.on('error', (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+      });
+
+      if (!fs.existsSync(tmpFile)) {
+        return res.status(500).json({ error: 'PDF file was not created' });
+      }
+
+      const pdfBuffer = fs.readFileSync(tmpFile);
+      cleanup();
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="brochure-${Date.now()}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      cleanup();
+      console.error('PDF generation error:', error);
+      res.status(500).json({ error: 'Failed to generate PDF', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

@@ -96,71 +96,34 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
   };
 
   const downloadPDF = useCallback(async () => {
-    if (!brochureRef.current || !brochureData) return;
+    if (!brochureData) return;
     setIsDownloading(true);
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      const panels = brochureRef.current.querySelectorAll('.brochure-panel');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: [14, 8.5] });
-
-      for (let i = 0; i < panels.length; i++) {
-        const panel = panels[i] as HTMLElement;
-        const canvas = await html2canvas(panel, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#000000',
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const panelWidth = 14 / Math.min(panels.length, 4);
-        const x = i * panelWidth;
-
-        if (i > 0 && i % 4 === 0) {
-          pdf.addPage([14, 8.5], 'landscape');
-        }
-        pdf.addImage(imgData, 'PNG', x, 0, panelWidth, 8.5);
-      }
-
-      pdf.save(`brochure-${Date.now()}.pdf`);
-      toast({ title: "PDF Downloaded!", description: "Your professional brochure PDF is ready for printing." });
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      toast({ title: "Download failed", description: "Try again or use your browser's print function", variant: "destructive" });
-    }
-    setIsDownloading(false);
-  }, [brochureData, toast]);
-
-  const downloadPrintPDF = useCallback(async () => {
-    if (!brochureRef.current || !brochureData) return;
-    setIsDownloading(true);
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      const container = brochureRef.current;
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#000000',
-        width: container.scrollWidth,
-        height: container.scrollHeight,
+      const response = await fetch('/api/ai-ads/brochure-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brochureData }),
       });
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
-      const pageW = 11;
-      const pageH = 8.5;
-      const margin = 0.125;
-      pdf.addImage(imgData, 'PNG', margin, margin, pageW - margin * 2, pageH - margin * 2);
-      pdf.save(`brochure-print-${Date.now()}.pdf`);
-      toast({ title: "Print-Ready PDF Downloaded!", description: "Sized for standard letter paper (11x8.5). Select 'Actual Size' in your printer settings." });
-    } catch (err) {
-      console.error('PDF error:', err);
-      toast({ title: "Download failed", variant: "destructive" });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'PDF generation failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `brochure-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "Professional PDF Downloaded!", description: "Multi-column brochure PDF generated with WeasyPrint — print-ready quality." });
+    } catch (err: any) {
+      console.error('PDF generation error:', err);
+      toast({ title: "Download failed", description: err.message || "Try again", variant: "destructive" });
     }
     setIsDownloading(false);
   }, [brochureData, toast]);
@@ -256,13 +219,9 @@ export default function BrochureBuilder({ onClose }: BrochureBuilderProps) {
                   <Button size="sm" variant="outline" onClick={() => generateMutation.mutate(prompt.trim())} disabled={generateMutation.isPending}>
                     <RefreshCw className="w-4 h-4 mr-1" />Regenerate
                   </Button>
-                  <Button size="sm" onClick={downloadPrintPDF} disabled={isDownloading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                  <Button size="sm" onClick={downloadPDF} disabled={isDownloading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                     {isDownloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
-                    Download Print PDF
-                  </Button>
-                  <Button size="sm" onClick={downloadPDF} disabled={isDownloading} className="bg-purple-600 hover:bg-purple-700 text-white">
-                    {isDownloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileText className="w-4 h-4 mr-1" />}
-                    Download Tri-Fold PDF
+                    Download Print-Ready PDF
                   </Button>
                   <Button
                     size="sm"
