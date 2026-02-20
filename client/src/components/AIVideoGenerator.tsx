@@ -18,7 +18,8 @@ import {
   TreePine, Home, Wrench, Droplets, Paintbrush, Flame, Wind,
   Building2, Truck, Scissors, CloudLightning, Laugh, Shield,
   Gem, DollarSign, Volume2, Music, Image, Share2, Hash,
-  Mic, Play, Square, Layers, Type, Palette, Copy
+  Mic, Play, Square, Layers, Type, Palette, Copy,
+  Send, MessageSquare, PenTool, History, Eye, RotateCcw, GitBranch
 } from 'lucide-react';
 
 interface VideoEngine {
@@ -78,6 +79,34 @@ interface ScriptResult {
   captions: { platform: string; text: string }[];
   voiceSuggestion: string;
   musicSuggestion: string;
+}
+
+interface EditMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp: number;
+  appliedChanges?: any;
+}
+
+interface VideoVersion {
+  id: string;
+  version: number;
+  prompt: string;
+  settings: {
+    engine: string;
+    duration: string;
+    aspectRatio: string;
+    resolution: string;
+    style: string;
+    effects: string[];
+    voice: string;
+    industry: string;
+    textOverlays?: { text: string; position: string; style: string }[];
+  };
+  job: VideoGenJob | null;
+  editNotes: string;
+  createdAt: number;
 }
 
 const industries: Industry[] = [
@@ -301,6 +330,12 @@ export default function AIVideoGenerator() {
   const [searchMeme, setSearchMeme] = useState('');
   const [memeResults, setMemeResults] = useState<any[]>([]);
   const [selectedMemes, setSelectedMemes] = useState<any[]>([]);
+  const [editMessages, setEditMessages] = useState<EditMessage[]>([]);
+  const [editInput, setEditInput] = useState('');
+  const [versions, setVersions] = useState<VideoVersion[]>([]);
+  const [activeVersion, setActiveVersion] = useState<number>(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const editChatRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: enginesData } = useQuery<{ success: boolean; engines: VideoEngine[] }>({
@@ -374,6 +409,10 @@ export default function AIVideoGenerator() {
             clearInterval(pollRef.current!);
             pollRef.current = null;
             setGeneratedVideos(prev => [data.job, ...prev]);
+            setVersions(prev => {
+              const updated = prev.map(v => (!v.job || v.job.status === 'processing' || v.job.status === 'queued') && v.settings.engine === data.job.engine ? { ...v, job: data.job } : v);
+              return updated;
+            });
             toast({ title: 'Video Ready!', description: 'Your AI-generated video is ready to preview and download.' });
           } else if (data.job.status === 'failed') {
             clearInterval(pollRef.current!);
@@ -435,6 +474,167 @@ export default function AIVideoGenerator() {
     }
   };
 
+  const editMutation = useMutation({
+    mutationFn: async (params: { message: string; currentPrompt: string; currentSettings: any }) => {
+      const res = await apiRequest('/api/video-gen/edit', 'POST', params);
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.success && data.edit) {
+        const edit = data.edit;
+        const aiMsg: EditMessage = {
+          id: `ai-${Date.now()}`,
+          role: 'ai',
+          content: edit.summary || 'Changes applied to your video.',
+          timestamp: Date.now(),
+          appliedChanges: edit
+        };
+        setEditMessages(prev => [...prev, aiMsg]);
+
+        if (edit.settingsChanges) {
+          if (edit.settingsChanges.addEffects) {
+            setSelectedEffects(prev => [...new Set([...prev, ...edit.settingsChanges.addEffects])]);
+          }
+          if (edit.settingsChanges.removeEffects) {
+            setSelectedEffects(prev => prev.filter(e => !edit.settingsChanges.removeEffects.includes(e)));
+          }
+          if (edit.settingsChanges.style) setSelectedStyle(edit.settingsChanges.style);
+          if (edit.settingsChanges.duration) setDuration(String(edit.settingsChanges.duration));
+          if (edit.settingsChanges.aspectRatio) setAspectRatio(edit.settingsChanges.aspectRatio);
+          if (edit.settingsChanges.resolution) setResolution(edit.settingsChanges.resolution);
+          if (edit.settingsChanges.voice) setSelectedVoice(edit.settingsChanges.voice);
+        }
+        if (edit.updatedPrompt && typeof edit.updatedPrompt === 'string') {
+          setPrompt(edit.updatedPrompt);
+        }
+
+        setTimeout(() => {
+          editChatRef.current?.scrollTo({ top: editChatRef.current.scrollHeight, behavior: 'smooth' });
+        }, 100);
+      }
+    },
+    onError: () => {
+      const aiMsg: EditMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'ai',
+        content: 'I applied your changes to the prompt directly. Click "Re-render" to generate the updated video.',
+        timestamp: Date.now()
+      };
+      setEditMessages(prev => [...prev, aiMsg]);
+    }
+  });
+
+  const handleSendEdit = () => {
+    if (!editInput.trim()) return;
+    const userMsg: EditMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: editInput.trim(),
+      timestamp: Date.now()
+    };
+    setEditMessages(prev => [...prev, userMsg]);
+    
+    const currentVersion = versions[activeVersion];
+    editMutation.mutate({
+      message: editInput.trim(),
+      currentPrompt: prompt,
+      currentSettings: {
+        engine: selectedEngine,
+        duration: parseInt(duration),
+        aspectRatio,
+        resolution,
+        style: selectedStyle,
+        effects: selectedEffects,
+        voice: selectedVoice,
+        industry: selectedIndustry
+      }
+    });
+    setEditInput('');
+  };
+
+  const handleOpenEditor = (job: VideoGenJob) => {
+    const v: VideoVersion = {
+      id: `v-${job.id}-${Date.now()}`,
+      version: versions.length + 1,
+      prompt: job.prompt || prompt,
+      settings: {
+        engine: job.engine || selectedEngine,
+        duration,
+        aspectRatio,
+        resolution,
+        style: selectedStyle,
+        effects: [...selectedEffects],
+        voice: selectedVoice,
+        industry: selectedIndustry
+      },
+      job,
+      editNotes: 'Original generation',
+      createdAt: Date.now()
+    };
+    setPrompt(job.prompt || prompt);
+    setVersions([v]);
+    setActiveVersion(0);
+    setEditMessages([{
+      id: 'system-start',
+      role: 'ai',
+      content: `Video ready! Tell me what you want to change. Try things like:\n• "Add lightning effects"\n• "Make it darker and more dramatic"\n• "Change to vertical for TikTok"\n• "Add bold yellow text saying CALL NOW"\n• "Make it more aggressive"\n• "Speed it up"`,
+      timestamp: Date.now()
+    }]);
+    setMainTab('edit');
+    setIsEditing(true);
+  };
+
+  const handleRerender = () => {
+    const currentVer = versions[activeVersion];
+    const industry = industries.find(i => i.id === selectedIndustry);
+    const style = styleModes.find(s => s.id === selectedStyle);
+    const voice = voicePresets.find(v => v.id === selectedVoice);
+    const effectNames = selectedEffects.map(e => effectOverlays.find(o => o.id === e)?.name).filter(Boolean);
+
+    const enhancedPrompt = [
+      prompt.trim(),
+      industry ? `Industry: ${industry.name}. Visual style: ${industry.visualStyle}.` : '',
+      style ? `Mood: ${style.name}. Lighting: ${style.lightingPreset}. Effects: ${style.effectsIntensity}.` : '',
+      voice ? `Voice direction: ${voice.description}.` : '',
+      effectNames.length > 0 ? `Add effects: ${effectNames.join(', ')}.` : '',
+      `Resolution: ${resolution}. Aspect ratio: ${aspectRatio}. Duration: ${duration} seconds.`,
+    ].filter(Boolean).join(' ');
+
+    const newVersion: VideoVersion = {
+      id: `v-${Date.now()}`,
+      version: versions.length + 1,
+      prompt: enhancedPrompt,
+      settings: {
+        engine: selectedEngine,
+        duration,
+        aspectRatio,
+        resolution,
+        style: selectedStyle,
+        effects: [...selectedEffects],
+        voice: selectedVoice,
+        industry: selectedIndustry
+      },
+      job: null,
+      editNotes: editMessages.filter(m => m.role === 'user').slice(-3).map(m => m.content).join('; ') || 'Re-rendered',
+      createdAt: Date.now()
+    };
+
+    setVersions(prev => [...prev, newVersion]);
+    setActiveVersion(versions.length);
+
+    generateMutation.mutate({
+      engine: selectedEngine,
+      prompt: enhancedPrompt,
+      options: { duration: parseInt(duration), aspectRatio, resolution, style: selectedStyle }
+    });
+    setEditMessages(prev => [...prev, {
+      id: `ai-rerender-${Date.now()}`,
+      role: 'ai',
+      content: `Re-rendering video (v${newVersion.version}) with your changes. This may take 60-120 seconds...`,
+      timestamp: Date.now()
+    }]);
+  };
+
   const copyText = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -456,24 +656,28 @@ export default function AIVideoGenerator() {
   return (
     <div className="space-y-4">
       <Tabs value={mainTab} onValueChange={setMainTab}>
-        <TabsList className="grid grid-cols-6 w-full max-w-4xl">
+        <TabsList className="grid grid-cols-7 w-full max-w-4xl">
           <TabsTrigger value="create" className="flex items-center gap-1.5 text-xs">
-            <Film className="w-3.5 h-3.5" /> Create Video
+            <Film className="w-3.5 h-3.5" /> Create
+          </TabsTrigger>
+          <TabsTrigger value="edit" className="flex items-center gap-1.5 text-xs relative">
+            <PenTool className="w-3.5 h-3.5" /> Edit
+            {versions.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-600 text-white rounded-full text-[8px] flex items-center justify-center">{versions.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="script" className="flex items-center gap-1.5 text-xs">
-            <Type className="w-3.5 h-3.5" /> AI Script
+            <Type className="w-3.5 h-3.5" /> Script
           </TabsTrigger>
           <TabsTrigger value="voice" className="flex items-center gap-1.5 text-xs">
-            <Mic className="w-3.5 h-3.5" /> Voice & Music
+            <Mic className="w-3.5 h-3.5" /> Voice
           </TabsTrigger>
           <TabsTrigger value="effects" className="flex items-center gap-1.5 text-xs">
-            <CloudLightning className="w-3.5 h-3.5" /> Effects & Memes
+            <CloudLightning className="w-3.5 h-3.5" /> Effects
           </TabsTrigger>
           <TabsTrigger value="export" className="flex items-center gap-1.5 text-xs">
-            <Share2 className="w-3.5 h-3.5" /> Social Export
+            <Share2 className="w-3.5 h-3.5" /> Export
           </TabsTrigger>
           <TabsTrigger value="engines" className="flex items-center gap-1.5 text-xs">
-            <Settings2 className="w-3.5 h-3.5" /> AI Engines
+            <Settings2 className="w-3.5 h-3.5" /> Engines
           </TabsTrigger>
         </TabsList>
 
@@ -681,7 +885,10 @@ export default function AIVideoGenerator() {
                       <video src={activeJob.videoUrl} controls autoPlay className="w-full h-full object-contain" />
                     </div>
                     <div className="flex gap-2">
-                      <Button className="flex-1" onClick={() => {
+                      <Button className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white" onClick={() => handleOpenEditor(activeJob)}>
+                        <PenTool className="w-4 h-4 mr-1" /> Edit with AI
+                      </Button>
+                      <Button variant="outline" onClick={() => {
                         const a = document.createElement('a'); a.href = activeJob.videoUrl!; a.download = `ai-video-${Date.now()}.mp4`; a.click();
                       }}><Download className="w-4 h-4 mr-1" /> Download</Button>
                       <Button variant="outline" onClick={() => { setActiveJob(null); setPrompt(''); }}>
@@ -801,6 +1008,242 @@ export default function AIVideoGenerator() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="edit">
+          {versions.length === 0 ? (
+            <Card className="bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 border-indigo-200 dark:border-indigo-800">
+              <CardContent className="py-16 text-center">
+                <PenTool className="w-16 h-16 text-indigo-300 mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">AI Video Editor</h3>
+                <p className="text-sm text-slate-500 max-w-md mx-auto mb-4">
+                  Generate a video first, then open it here to edit with AI. Tell the AI what changes you want — add effects, change lighting, adjust text — then re-render.
+                </p>
+                <Button onClick={() => setMainTab('create')} className="bg-gradient-to-r from-violet-600 to-purple-600 text-white">
+                  <Film className="w-4 h-4 mr-2" /> Go to Create Video
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-3 space-y-3">
+                <Card className="border-2 border-indigo-200 dark:border-indigo-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <History className="w-4 h-4 text-indigo-600" /> Versions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5">
+                    {versions.map((v, i) => (
+                      <button key={v.id} onClick={() => setActiveVersion(i)}
+                        className={`w-full text-left p-2.5 rounded-lg border-2 transition-all ${
+                          activeVersion === i ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                        }`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs font-bold flex items-center gap-1">
+                            <GitBranch className="w-3 h-3" /> v{v.version}
+                          </span>
+                          {v.job?.status === 'completed' && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                          {v.job?.status === 'processing' && <Loader2 className="w-3 h-3 animate-spin text-violet-500" />}
+                          {!v.job && <div className="w-2 h-2 rounded-full bg-slate-300" />}
+                        </div>
+                        <p className="text-[9px] text-slate-500 truncate">{v.editNotes}</p>
+                        <p className="text-[8px] text-slate-400 mt-0.5">{new Date(v.createdAt).toLocaleTimeString()}</p>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-orange-500" /> Active Layers
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Style</p>
+                      <Badge className="text-[10px]">{styleModes.find(s => s.id === selectedStyle)?.icon} {styleModes.find(s => s.id === selectedStyle)?.name}</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Effects ({selectedEffects.length})</p>
+                      {selectedEffects.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedEffects.map(e => {
+                            const effect = effectOverlays.find(o => o.id === e);
+                            return (
+                              <button key={e} className="inline-flex" onClick={() => setSelectedEffects(prev => prev.filter(x => x !== e))}>
+                                <Badge variant="outline" className="text-[9px] cursor-pointer hover:bg-red-50 hover:text-red-600">
+                                  {effect?.icon} {effect?.name} x
+                                </Badge>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : <p className="text-[10px] text-slate-400 italic">None</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Voice</p>
+                      <Badge variant="outline" className="text-[10px]">{voicePresets.find(v => v.id === selectedVoice)?.icon} {voicePresets.find(v => v.id === selectedVoice)?.name}</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Format</p>
+                      <div className="flex gap-1">
+                        <Badge variant="outline" className="text-[9px]">{aspectRatio}</Badge>
+                        <Badge variant="outline" className="text-[9px]">{resolution}</Badge>
+                        <Badge variant="outline" className="text-[9px]">{duration}s</Badge>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Engine</p>
+                      <Badge variant="outline" className="text-[10px]">{engines.find(e => e.id === selectedEngine)?.name || selectedEngine}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-5 space-y-3">
+                {(() => {
+                  const currentVer = versions[activeVersion];
+                  const job = currentVer?.job || activeJob;
+                  return (
+                    <>
+                      {job?.status === 'completed' && job.videoUrl ? (
+                        <Card className="border-2 border-green-200 dark:border-green-800">
+                          <CardContent className="p-3">
+                            <div className="rounded-xl overflow-hidden bg-black aspect-video">
+                              <video src={job.videoUrl} controls className="w-full h-full object-contain" />
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <Badge className="bg-green-100 text-green-700 text-[10px]">
+                                <CheckCircle className="w-3 h-3 mr-0.5" /> v{currentVer?.version || 1} Ready
+                              </Badge>
+                              <div className="flex gap-1.5">
+                                <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => {
+                                  const a = document.createElement('a'); a.href = job.videoUrl!; a.download = `ai-video-v${currentVer?.version || 1}.mp4`; a.click();
+                                }}><Download className="w-3 h-3 mr-1" /> Download</Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : job?.status === 'processing' || job?.status === 'queued' ? (
+                        <Card className="border-2 border-violet-200 dark:border-violet-800">
+                          <CardContent className="py-12 text-center">
+                            <Loader2 className="w-12 h-12 text-violet-600 mx-auto mb-3 animate-spin" />
+                            <h3 className="text-sm font-bold mb-1">Rendering v{currentVer?.version || ''}...</h3>
+                            <p className="text-xs text-slate-500">AI is generating your updated video. 60-120 seconds.</p>
+                            <Progress value={job.status === 'processing' ? 65 : 15} className="h-2 max-w-xs mx-auto mt-3" />
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                          <CardContent className="py-8 text-center">
+                            <Eye className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500">Chat with AI below to describe changes, then click Re-render.</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
+                  );
+                })()}
+
+                <Card>
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-xs flex items-center gap-2 text-slate-500">
+                      <Type className="w-3.5 h-3.5" /> Current Prompt
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
+                      className="text-xs min-h-[60px] resize-none" placeholder="Video generation prompt..." />
+                  </CardContent>
+                </Card>
+
+                <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-5"
+                  onClick={handleRerender}
+                  disabled={generateMutation.isPending || activeJob?.status === 'processing' || activeJob?.status === 'queued'}>
+                  {generateMutation.isPending || activeJob?.status === 'processing' ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Re-rendering...</>
+                  ) : (
+                    <><RotateCcw className="w-4 h-4 mr-2" /> Apply Changes & Re-render (v{versions.length + 1})</>
+                  )}
+                </Button>
+              </div>
+
+              <div className="lg:col-span-4">
+                <Card className="border-2 border-violet-200 dark:border-violet-800 h-full flex flex-col">
+                  <CardHeader className="pb-2 flex-shrink-0">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-violet-600" /> AI Edit Chat
+                    </CardTitle>
+                    <p className="text-[10px] text-slate-500">Tell the AI what to change. It updates your prompt and settings automatically.</p>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col min-h-0 p-3">
+                    <div ref={editChatRef} className="flex-1 overflow-y-auto space-y-2 mb-3 max-h-[420px] min-h-[300px] pr-1">
+                      {editMessages.map(msg => (
+                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs ${
+                            msg.role === 'user'
+                              ? 'bg-violet-600 text-white rounded-br-sm'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-bl-sm'
+                          }`}>
+                            <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
+                            {msg.appliedChanges?.settingsChanges && Object.keys(msg.appliedChanges.settingsChanges).length > 0 && (
+                              <div className="mt-1.5 pt-1.5 border-t border-slate-200 dark:border-slate-700">
+                                <p className="text-[9px] font-bold mb-0.5 opacity-70">Changes applied:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {msg.appliedChanges.settingsChanges.addEffects?.map((e: string) => (
+                                    <Badge key={e} className="text-[8px] bg-orange-100 text-orange-700 px-1">+{effectOverlays.find(o => o.id === e)?.name || e}</Badge>
+                                  ))}
+                                  {msg.appliedChanges.settingsChanges.style && (
+                                    <Badge className="text-[8px] bg-amber-100 text-amber-700 px-1">Style: {msg.appliedChanges.settingsChanges.style}</Badge>
+                                  )}
+                                  {msg.appliedChanges.settingsChanges.duration && (
+                                    <Badge className="text-[8px] bg-blue-100 text-blue-700 px-1">Duration: {msg.appliedChanges.settingsChanges.duration}s</Badge>
+                                  )}
+                                  {msg.appliedChanges.settingsChanges.aspectRatio && (
+                                    <Badge className="text-[8px] bg-green-100 text-green-700 px-1">Ratio: {msg.appliedChanges.settingsChanges.aspectRatio}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {editMutation.isPending && (
+                        <div className="flex justify-start">
+                          <div className="bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 rounded-bl-sm">
+                            <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-shrink-0 space-y-2">
+                      <div className="flex flex-wrap gap-1">
+                        {['Add lightning', 'Make darker', 'More aggressive', 'Add fire', 'Vertical TikTok', 'Speed up'].map(q => (
+                          <button key={q} onClick={() => { setEditInput(q); }}
+                            className="text-[9px] px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 transition-colors">
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input value={editInput} onChange={(e) => setEditInput(e.target.value)}
+                          placeholder="Tell AI what to change..."
+                          className="text-sm flex-1"
+                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendEdit()} />
+                        <Button onClick={handleSendEdit} disabled={editMutation.isPending || !editInput.trim()}
+                          className="bg-violet-600 hover:bg-violet-700 text-white px-3">
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="script">
@@ -926,9 +1369,11 @@ export default function AIVideoGenerator() {
                       <h4 className="text-[10px] font-bold mb-1">HASHTAGS</h4>
                       <div className="flex flex-wrap gap-1">
                         {scriptResult.hashtags.map((h, i) => (
-                          <Badge key={i} variant="outline" className="text-[10px] cursor-pointer hover:bg-violet-50" onClick={() => copyText(h, `hash-${i}`)}>
-                            {h}
-                          </Badge>
+                          <button key={i} className="inline-flex" onClick={() => copyText(h, `hash-${i}`)}>
+                            <Badge variant="outline" className="text-[10px] cursor-pointer hover:bg-violet-50">
+                              {h}
+                            </Badge>
+                          </button>
                         ))}
                       </div>
                       <Button variant="ghost" size="sm" className="mt-1 text-[10px]" onClick={() => copyText(scriptResult.hashtags.join(' '), 'all-hash')}>

@@ -54,5 +54,143 @@ export function registerVideoGenerationRoutes(app: Application) {
     }
   });
 
+  app.post('/api/video-gen/edit', async (req: Request, res: Response) => {
+    try {
+      const { message, currentPrompt, currentSettings } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: 'Edit message is required' });
+      }
+
+      const systemPrompt = `You are an AI video editing assistant for a contractor marketing platform. The user has an existing AI-generated video and wants to make changes. Your job is to interpret their edit instructions and return an updated video generation prompt plus any settings changes.
+
+Current video prompt: "${currentPrompt || ''}"
+Current settings: ${JSON.stringify(currentSettings || {})}
+
+Based on the user's edit instruction, return a JSON object with:
+- "updatedPrompt": the full updated prompt incorporating the requested changes
+- "settingsChanges": an object with any settings to change, such as:
+  - "addEffects": array of effect IDs to add (lightning, fire, glitch, smoke, sparks, rain, confetti, lens-flare)
+  - "removeEffects": array of effect IDs to remove
+  - "style": new style mode if changing (aggressive, funny-meme, family-safe, luxury, storm-emergency, discount-push)
+  - "duration": new duration in seconds if changing
+  - "aspectRatio": new aspect ratio if changing (16:9, 9:16, 1:1)
+  - "resolution": new resolution if changing (720p, 1080p, 4k)
+  - "voice": new voice preset if changing
+  - "textOverlays": array of {text, position, style} for text additions
+- "summary": a brief human-readable summary of what changes were made
+- "editType": one of "prompt_only", "settings_only", "both"
+
+Be creative in translating casual instructions into professional video direction. For example:
+- "make it darker" → update lighting in prompt, maybe add smoke effect
+- "add lightning" → add lightning effect, update prompt with storm elements
+- "make text bigger and yellow" → add textOverlays with bold yellow style
+- "speed it up" → reduce duration
+- "make it more aggressive" → change style to aggressive`;
+
+      try {
+        const OpenAI = (await import('openai')).default;
+        const openai = new OpenAI();
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message }
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 1500,
+        });
+
+        const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+        res.json({ success: true, edit: {
+          updatedPrompt: result.updatedPrompt || currentPrompt || '',
+          settingsChanges: result.settingsChanges || {},
+          summary: result.summary || 'Changes applied',
+          editType: result.editType || 'both'
+        }});
+      } catch (aiError) {
+        const lowerMsg = message.toLowerCase();
+        const settingsChanges: any = {};
+        let updatedPrompt = currentPrompt || '';
+        let summary = '';
+
+        if (lowerMsg.includes('lightning') || lowerMsg.includes('storm')) {
+          settingsChanges.addEffects = ['lightning'];
+          updatedPrompt += ' Add dramatic lightning strikes and storm atmosphere.';
+          summary = 'Added lightning effects and storm atmosphere';
+        }
+        if (lowerMsg.includes('fire') || lowerMsg.includes('flames')) {
+          settingsChanges.addEffects = [...(settingsChanges.addEffects || []), 'fire'];
+          updatedPrompt += ' Add fire and flame effects.';
+          summary += (summary ? '. ' : '') + 'Added fire effects';
+        }
+        if (lowerMsg.includes('dark') || lowerMsg.includes('darker')) {
+          updatedPrompt += ' Make the overall lighting darker and more dramatic with deep shadows.';
+          summary += (summary ? '. ' : '') + 'Darkened lighting with dramatic shadows';
+        }
+        if (lowerMsg.includes('bright') || lowerMsg.includes('lighter')) {
+          updatedPrompt += ' Make the lighting brighter and more vibrant.';
+          summary += (summary ? '. ' : '') + 'Brightened lighting';
+        }
+        if (lowerMsg.includes('aggressive') || lowerMsg.includes('intense')) {
+          settingsChanges.style = 'aggressive';
+          summary += (summary ? '. ' : '') + 'Changed style to Aggressive';
+        }
+        if (lowerMsg.includes('funny') || lowerMsg.includes('meme')) {
+          settingsChanges.style = 'funny-meme';
+          summary += (summary ? '. ' : '') + 'Changed style to Funny Meme';
+        }
+        if (lowerMsg.includes('luxury') || lowerMsg.includes('premium') || lowerMsg.includes('elegant')) {
+          settingsChanges.style = 'luxury';
+          summary += (summary ? '. ' : '') + 'Changed style to Luxury';
+        }
+        if (lowerMsg.includes('faster') || lowerMsg.includes('speed up') || lowerMsg.includes('shorter')) {
+          settingsChanges.duration = Math.max(3, (currentSettings?.duration || 10) - 3);
+          summary += (summary ? '. ' : '') + 'Shortened video duration';
+        }
+        if (lowerMsg.includes('longer') || lowerMsg.includes('slow') || lowerMsg.includes('extend')) {
+          settingsChanges.duration = Math.min(30, (currentSettings?.duration || 10) + 5);
+          summary += (summary ? '. ' : '') + 'Extended video duration';
+        }
+        if (lowerMsg.includes('vertical') || lowerMsg.includes('portrait') || lowerMsg.includes('tiktok')) {
+          settingsChanges.aspectRatio = '9:16';
+          summary += (summary ? '. ' : '') + 'Changed to vertical format';
+        }
+        if (lowerMsg.includes('text') || lowerMsg.includes('title') || lowerMsg.includes('caption')) {
+          const textMatch = message.match(/["']([^"']+)["']/);
+          settingsChanges.textOverlays = [{ text: textMatch ? textMatch[1] : 'CALL NOW', position: 'center', style: 'bold-yellow' }];
+          summary += (summary ? '. ' : '') + 'Added text overlay';
+        }
+        if (lowerMsg.includes('glitch')) {
+          settingsChanges.addEffects = [...(settingsChanges.addEffects || []), 'glitch'];
+          updatedPrompt += ' Add digital glitch distortion effects.';
+          summary += (summary ? '. ' : '') + 'Added glitch effects';
+        }
+        if (lowerMsg.includes('smoke') || lowerMsg.includes('fog')) {
+          settingsChanges.addEffects = [...(settingsChanges.addEffects || []), 'smoke'];
+          updatedPrompt += ' Add atmospheric smoke and fog.';
+          summary += (summary ? '. ' : '') + 'Added smoke/fog effects';
+        }
+
+        if (!summary) {
+          updatedPrompt += ` ${message}`;
+          summary = `Applied edit: "${message}"`;
+        }
+
+        res.json({
+          success: true,
+          edit: {
+            updatedPrompt,
+            settingsChanges,
+            summary,
+            editType: Object.keys(settingsChanges).length > 0 ? 'both' : 'prompt_only'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error processing video edit:', error);
+      res.status(500).json({ error: 'Failed to process edit', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   console.log('🎬 Video Generation routes registered');
 }
