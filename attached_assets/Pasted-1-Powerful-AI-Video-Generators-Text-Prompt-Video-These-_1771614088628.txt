@@ -1,0 +1,55 @@
+1. Powerful AI Video Generators (Text-Prompt → Video)
+
+These tools can generate full videos from text or visuals — ideal for dynamic content creation inside your app:
+
+Google Veo (Veo 3 / Veo 3.1) – Leading AI video model for realistic, cinematic videos from text or images. Great for product promos and high-quality visual storytelling.
+
+OpenAI Sora (Sora 2) – Excellent at narrative storytelling and scenes with consistent visual flow. Works well if you want narrative-style video features.
+
+LTX Studio – Offers manual camera and framing controls in addition to AI generation; good if creators want more control.
+
+Luma Dream Machine – Another text-to-video model with creative flexibility.
+
+👉 These are ideal for building AI video creation features inside an app (prompts → full video with audio).
+
+✂️ 2. Smart AI Video Editors & Content Makers
+
+If you want tools to edit, repurpose, and polish videos, these are excellent:
+
+Descript – Edit video by editing text transcript; automatic captions + scene removal.
+
+VEED / Wondershare Filmora – Traditional editing with AI helpers like auto-cut, captions, effects, etc.
+
+OpusClip – Extracts viral clips from longer videos with AI-suggested highlights.
+
+Kapwing – Browser-based editor with AI tools for script → video, automatic subtitles, clips.
+
+👉 These are great for editing workflows or to embed editing options in your app.
+
+🤖 3. AI Avatars & Template-Based Creators
+
+These work well for explainer videos, training content, or user-generated content:
+
+Synthesia – AI avatars and multilingual voiceovers for corporate or educational videos.
+
+Invideo AI – Script to video from prompts with voices, subtitles, and templates for social content.
+
+Vyond / HeyGen – Animated characters and real avatars for engaging videos.
+
+👉 Ideal if users want ready-made templates or avatar-led content creation.
+
+📌 How to Pick the Best Tool for Your App
+
+🔹 For built-in video generation (prompt-to-video):
+
+Veo 3 / Sora 2 — best realism & storytelling
+
+LTX Studio / Dream Machine — creative control alternatives
+
+🔹 For editing + repurposing user video content:
+
+Descript, VEED, Filmora, Kapwing — strong AI editing workflows
+
+🔹 For avatar-based or template content:
+
+Synthesia, Invideo AI, Vyond — great for training or marketing clips
