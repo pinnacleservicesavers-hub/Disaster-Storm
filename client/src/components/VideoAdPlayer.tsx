@@ -65,10 +65,36 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
   const totalDuration = Math.max(sceneDurations.reduce((a, b) => a + b, 0), 5);
 
   useEffect(() => {
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => setLoadedImage(img);
-    img.src = imageUrl;
+    let cancelled = false;
+    let blobUrl: string | null = null;
+    setLoadedImage(null);
+    const loadImage = async () => {
+      try {
+        const resp = await fetch(imageUrl);
+        if (!resp.ok) throw new Error('fetch failed');
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        const img = new window.Image();
+        img.onload = () => {
+          if (!cancelled) setLoadedImage(img);
+        };
+        img.onerror = () => {
+          const fallback = new window.Image();
+          fallback.onload = () => { if (!cancelled) setLoadedImage(fallback); };
+          fallback.src = imageUrl;
+        };
+        img.src = blobUrl;
+      } catch {
+        const fallback = new window.Image();
+        fallback.onload = () => { if (!cancelled) setLoadedImage(fallback); };
+        fallback.src = imageUrl;
+      }
+    };
+    loadImage();
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [imageUrl]);
 
   const prepareVideo = useCallback(async () => {
@@ -503,6 +529,15 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
               }
             }}
           />
+
+          {!loadedImage && !isPreparing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+              <div className="text-center text-white">
+                <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3 text-purple-400" />
+                <p className="text-sm text-white/70">Loading video preview...</p>
+              </div>
+            </div>
+          )}
 
           {isPreparing && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60">
