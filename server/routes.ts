@@ -4761,6 +4761,7 @@ Return this exact JSON structure:
   // ---- static assets setup ----
   app.use("/uploads", express.static(UPLOAD_DIR));
   app.use("/assets", express.static(ASSETS_DIR));
+  app.use("/generated-videos", express.static(path.join(process.cwd(), "public", "generated-videos")));
 
   // ---- health/version ----
   app.get("/health", (req, res) => res.json({ ok: true }));

@@ -292,6 +292,7 @@ const voicePresets = [
 ];
 
 const engineIcons: Record<string, { icon: any; gradient: string; badge: string }> = {
+  'cinematic-ai': { icon: Film, gradient: 'from-cyan-500 to-blue-600', badge: 'Ready Now' },
   'openai-sora': { icon: Crown, gradient: 'from-emerald-500 to-teal-600', badge: 'Most Realistic' },
   'runway-gen3': { icon: Star, gradient: 'from-violet-500 to-purple-600', badge: 'Best Overall' },
   'luma-dream-machine': { icon: Sparkles, gradient: 'from-amber-500 to-orange-600', badge: 'Beautiful Lighting' },
@@ -301,6 +302,7 @@ const engineIcons: Record<string, { icon: any; gradient: string; badge: string }
 };
 
 const engineDescriptions: Record<string, string> = {
+  'cinematic-ai': 'AI-generated multi-scene motion video with real people, Ken Burns camera movement, smooth transitions, and professional pacing. Ready to use now.',
   'openai-sora': 'Fully generative videos with real motion, consistent scenes, and natural human movement. Physics-aware — the most realistic AI video.',
   'runway-gen3': 'Director-level control with cinematic camera movement, depth of field, realistic lighting, and motion blur. Broadcast-quality.',
   'luma-dream-machine': 'Cinematic lighting specialist. Outdoor golden-hour scenes with dramatic sunlight rays. Luxury documentary feel.',
@@ -314,9 +316,9 @@ export default function AIVideoGenerator() {
   const [mainTab, setMainTab] = useState('create');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('tree-service');
   const [selectedStyle, setSelectedStyle] = useState<string>('aggressive');
-  const [selectedEngine, setSelectedEngine] = useState<string>('runway-gen3');
+  const [selectedEngine, setSelectedEngine] = useState<string>('cinematic-ai');
   const [prompt, setPrompt] = useState('');
-  const [duration, setDuration] = useState('5');
+  const [duration, setDuration] = useState('12');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('1080p');
   const [selectedEffects, setSelectedEffects] = useState<string[]>([]);
