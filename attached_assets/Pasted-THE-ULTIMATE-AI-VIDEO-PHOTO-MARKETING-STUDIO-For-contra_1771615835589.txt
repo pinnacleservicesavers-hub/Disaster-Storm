@@ -1,0 +1,334 @@
+THE ULTIMATE AI VIDEO & PHOTO MARKETING STUDIO
+
+For contractors.
+Better than CapCut.
+Better than Filmora.
+Better than Canva.
+Better than avatar apps.
+
+A pure Hollywood Marketing Engine.
+
+Now we talk real architecture.
+
+🎥 FIRST — IMPORTANT TRUTH
+
+You cannot legally “install CapCut or Filmora inside your app.”
+
+They are closed-source proprietary systems.
+
+But…
+
+You can build something MORE powerful by combining best-in-class APIs.
+
+That’s how real SaaS platforms are built.
+
+🎬 WHAT YOU WANT INSIDE YOUR APP
+
+Everything below must exist inside YOUR platform:
+
+🎞 Core Video Editing Engine
+
+Multi-track timeline
+
+Drag-and-drop clips
+
+Text overlays
+
+Stickers
+
+GIF support
+
+Transitions
+
+Speed control
+
+Split & trim
+
+Audio mixing
+
+🎨 Advanced Effects
+
+Lightning overlays
+
+Fire overlays
+
+Cinematic LUT filters
+
+Film grain
+
+Motion blur
+
+Glitch effects
+
+Flicker lighting
+
+Color grading panel
+
+Sky replacement
+
+Background blur
+
+🤖 AI Tools
+
+Auto captions
+
+Script-to-video
+
+Text-to-video
+
+Avatar talking head
+
+Text-to-speech
+
+Voice cloning
+
+AI voice changer
+
+AI object insertion
+
+Background removal
+
+Auto B-roll generator
+
+AI scene expansion
+
+😂 Meme & Trend Engine
+
+Pull trending memes
+
+Suggest viral formats
+
+Suggest trending sounds
+
+Auto format to viral template
+
+🧍 Avatar Video Generator
+
+Like:
+
+Synthesia
+
+HeyGen
+
+D-ID
+
+User types script → Avatar talks → exports video.
+
+🖼 AI Image Tools
+
+AI ad photo generator
+
+Before/after enhancer
+
+Background replacement
+
+Sky enhancement
+
+Logo overlay
+
+Flyer builder
+
+Poster generator
+
+🧱 HOW YOU ACTUALLY BUILD THIS
+
+You don’t build one giant system.
+
+You integrate engines.
+
+Here’s the real architecture:
+
+🧠 1️⃣ VIDEO ENGINE (Core Editor)
+
+Use:
+
+• Remotion (React-based video rendering)
+• FFmpeg backend processing
+• WebGL-based timeline editor (like open-source Video.js editor)
+
+This gives:
+
+Timeline editing
+
+Multi-track control
+
+Overlay control
+
+Real-time preview
+
+🤖 2️⃣ AI VIDEO GENERATION
+
+Integrate APIs:
+
+• Runway ML (AI video generation)
+• Pika Labs (text-to-video)
+• Stability AI video
+• OpenAI Sora (when public)
+
+User types:
+“Add lightning storm behind crane.”
+AI generates overlay.
+
+🎙 3️⃣ VOICE & AVATAR SYSTEM
+
+Integrate:
+
+• ElevenLabs (voice cloning)
+• OpenAI TTS
+• HeyGen API (avatar video)
+• D-ID API (photo talking head)
+
+User types:
+“Make contractor spokesperson.”
+Avatar video generated.
+
+😂 4️⃣ MEME + TREND ENGINE
+
+Connect:
+
+• Giphy API
+• Tenor API
+• Reddit API
+• TikTok Creative Center (trend data scraping logic)
+
+Build:
+Trend Analyzer Module
+
+User types:
+“Funny tree removal ad.”
+System:
+
+Suggests trending meme format
+
+Suggests trending sound
+
+Suggests hook
+
+🎨 5️⃣ CINEMATIC FX PACKS
+
+Build your own library:
+
+Upload transparent:
+
+Lightning MP4 overlays
+
+Fire overlays
+
+Smoke overlays
+
+Sparks
+
+Dust
+
+Lens flares
+
+Explosions
+
+These are layered automatically in timeline.
+
+That’s how Hollywood VFX works.
+
+📸 6️⃣ AI IMAGE STUDIO
+
+Integrate:
+
+• OpenAI image generation
+• Stability AI
+• Remove.bg API
+• Canva-style layout builder
+• Upscaling engine (Topaz-like via AI upscaler)
+
+User types:
+“Luxury tree removal ad photo at sunset.”
+AI generates ad image.
+
+🎬 7️⃣ HOLLYWOOD MODE PRESETS
+
+User clicks:
+
+🔥 Aggressive Contractor
+💎 Luxury Home Service
+😂 Viral Meme
+⚡ Storm Emergency
+🏡 Family Safe
+
+Each preset changes:
+
+Color grading
+
+Font
+
+Sound style
+
+Effect intensity
+
+Text animation style
+
+⚙️ WHAT REPLIT NEEDS TO BUILD
+
+You tell Replit:
+
+Build a modular AI Video & Image Editing Platform with:
+
+Frontend:
+
+React
+
+WebGL timeline
+
+Drag-and-drop interface
+
+Backend:
+
+FastAPI or Node
+
+FFmpeg rendering engine
+
+Background job queue
+
+AI API integrations
+
+Media storage:
+
+S3-compatible storage
+
+Render queue:
+
+Background worker system
+
+⚠️ REALITY CHECK
+
+CapCut has 500+ engineers.
+
+You won’t replicate everything immediately.
+
+So you build:
+
+PHASE 1:
+AI Script + Voice + Overlay Editor + Basic Timeline
+
+PHASE 2:
+Avatar videos + Text-to-video + Advanced FX
+
+PHASE 3:
+Trend engine + Auto-posting + AI cinematic expansion
+
+🔥 THE DIFFERENCE BETWEEN YOU AND CAPCUT
+
+CapCut is general public.
+
+You are:
+
+“Hollywood Marketing Studio for Contractors.”
+
+Niche = domination.
+
+Now here’s the serious question:
+
+Do you want:
+
+A) Full drag-and-drop editing interface
+B) Prompt-based AI generator only
+C) Hybrid (manual editing + AI automation)
+
+The answer determines the UI architecture completely.

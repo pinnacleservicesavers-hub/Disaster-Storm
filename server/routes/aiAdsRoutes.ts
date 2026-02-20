@@ -337,5 +337,97 @@ export function registerAIAdsRoutes(app: Express) {
     }
   });
 
+  app.post('/api/ai-ads/generate-script', async (req: Request, res: Response) => {
+    try {
+      const { industry, style, input } = req.body;
+      
+      const systemPrompt = `You are a world-class ad copywriter for contractors. Generate a complete ad script for a ${industry} business in a ${style} style. Return JSON with: hook (attention-grabbing opener), offer (the deal/discount), body (2-3 sentences of persuasive copy), cta (call to action), hashtags (array of 8-10 relevant hashtags), captions (array of objects with platform and text for TikTok, Facebook, Instagram), voiceSuggestion (voice tone recommendation), musicSuggestion (music style recommendation). Be creative, punchy, and industry-specific.`;
+
+      try {
+        const OpenAI = (await import('openai')).default;
+        const openai = new OpenAI();
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input || `Create a ${style} ad for ${industry}` }
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 1000,
+        });
+        
+        const scriptData = JSON.parse(completion.choices[0]?.message?.content || '{}');
+        res.json({ success: true, script: scriptData });
+      } catch (aiError) {
+        const industryHooks: Record<string, string[]> = {
+          'tree-service': ['This tree could cost you thousands', 'Storm season is here', 'Don\'t wait until it falls'],
+          'roofing': ['Your roof is leaking money', 'One storm away from disaster', 'FREE roof inspection'],
+          'house-cleaning': ['Your house deserves better', 'Life\'s too short to clean', 'We clean so you don\'t have to'],
+          'pressure-washing': ['You won\'t believe this is the same driveway', 'Satisfying clean coming up', 'Your neighbors will be jealous'],
+          'plumbing': ['That drip is costing you $50/month', 'Emergency plumber on call 24/7', 'Small leak? Big problem coming'],
+          'hvac': ['Your AC is about to die', 'Save $200/month on energy', 'Don\'t sweat it — literally'],
+        };
+        const hooks = industryHooks[industry] || ['Professional service you can trust', 'Licensed and insured', 'Call today'];
+        
+        res.json({ success: true, script: {
+          hook: hooks[Math.floor(Math.random() * hooks.length)],
+          offer: `Special offer for ${industry.replace(/-/g, ' ')} — call for details!`,
+          body: `Professional ${industry.replace(/-/g, ' ')} services you can trust. Licensed, insured, and ready to serve.`,
+          cta: 'Call today for a FREE estimate!',
+          hashtags: [`#${industry.replace(/-/g, '')}`, '#contractor', '#professional', '#licensed', '#insured', '#freeestimate', '#localservice', '#homeimprovement'],
+          captions: [
+            { platform: 'TikTok', text: `${hooks[0]} Call now! #${industry.replace(/-/g, '')} #fyp` },
+            { platform: 'Facebook', text: `${hooks[0]}\n\nLicensed & Insured. Call for a free estimate today!` },
+            { platform: 'Instagram', text: `${hooks[0]} \u2728\n\nDM us for a free estimate!\n\n#${industry.replace(/-/g, '')} #contractor #professional` },
+          ],
+          voiceSuggestion: style === 'funny-meme' ? 'High energy, comedic timing' : style === 'luxury' ? 'Calm, sophisticated' : 'Confident, professional',
+          musicSuggestion: style === 'aggressive' ? 'Hard beat drop, epic trailer' : style === 'luxury' ? 'Cinematic orchestra' : 'Upbeat commercial instrumental',
+        }});
+      }
+    } catch (error) {
+      console.error('Error generating script:', error);
+      res.status(500).json({ error: 'Failed to generate script', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.get('/api/ai-ads/search-memes', async (req: Request, res: Response) => {
+    try {
+      const query = req.query.q as string;
+      if (!query) return res.status(400).json({ error: 'Query parameter q is required' });
+
+      let results: any[] = [];
+      try {
+        const tenorRes = await fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ&limit=12&media_filter=tinygif,gif`);
+        const tenorData = await tenorRes.json();
+        results = (tenorData.results || []).map((r: any) => ({
+          id: r.id,
+          title: r.title || query,
+          preview: r.media_formats?.tinygif?.url || '',
+          full: r.media_formats?.gif?.url || '',
+          source: 'tenor'
+        }));
+      } catch {
+        try {
+          const giphyRes = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&q=${encodeURIComponent(query)}&limit=12&rating=g`);
+          const giphyData = await giphyRes.json();
+          results = (giphyData.data || []).map((g: any) => ({
+            id: g.id,
+            title: g.title || query,
+            preview: g.images?.fixed_height_small?.url || g.images?.fixed_height?.url || '',
+            full: g.images?.original?.url || '',
+            source: 'giphy'
+          }));
+        } catch {
+          results = [];
+        }
+      }
+
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error('Meme search error:', error);
+      res.status(500).json({ error: 'Failed to search memes' });
+    }
+  });
+
   console.log('🎨 AI Ads Assistant routes registered (all industries, sound studio enabled)');
 }
