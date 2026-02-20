@@ -68,26 +68,42 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
     let cancelled = false;
     let blobUrl: string | null = null;
     setLoadedImage(null);
-    const loadImage = async () => {
+
+    const getProxyUrl = (url: string) => {
       try {
-        const resp = await fetch(imageUrl);
+        const parsed = new URL(url);
+        if (parsed.hostname.includes('openai') || parsed.hostname.includes('dalle') || parsed.hostname.includes('blob.core.windows.net')) {
+          return `/api/ai-ads/proxy-image?url=${encodeURIComponent(url)}`;
+        }
+      } catch {}
+      return url;
+    };
+
+    const loadImage = async () => {
+      const proxyUrl = getProxyUrl(imageUrl);
+      try {
+        const resp = await fetch(proxyUrl);
         if (!resp.ok) throw new Error('fetch failed');
         const blob = await resp.blob();
         blobUrl = URL.createObjectURL(blob);
         const img = new window.Image();
-        img.onload = () => {
-          if (!cancelled) setLoadedImage(img);
-        };
+        img.onload = () => { if (!cancelled) setLoadedImage(img); };
         img.onerror = () => {
-          const fallback = new window.Image();
-          fallback.onload = () => { if (!cancelled) setLoadedImage(fallback); };
-          fallback.src = imageUrl;
+          if (!cancelled) {
+            console.warn('Blob URL load failed, retrying fetch');
+            fetch(proxyUrl).then(r => r.blob()).then(b => {
+              const retryUrl = URL.createObjectURL(b);
+              const retry = new window.Image();
+              retry.onload = () => { if (!cancelled) setLoadedImage(retry); };
+              retry.src = retryUrl;
+            }).catch(() => {});
+          }
         };
         img.src = blobUrl;
       } catch {
-        const fallback = new window.Image();
-        fallback.onload = () => { if (!cancelled) setLoadedImage(fallback); };
-        fallback.src = imageUrl;
+        const img = new window.Image();
+        img.onload = () => { if (!cancelled) setLoadedImage(img); };
+        img.src = imageUrl;
       }
     };
     loadImage();
@@ -423,6 +439,11 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
         toast({ title: "Video Downloaded!", description: "Your video ad has been saved." });
       };
 
+      recorder.onerror = () => {
+        setIsRecording(false);
+        toast({ title: "Recording Failed", description: "Could not capture video.", variant: "destructive" });
+      };
+
       recorder.start();
 
       pausedAtRef.current = 0;
@@ -433,6 +454,7 @@ export default function VideoAdPlayer({ imageUrl, videoConcept, videoScript, hea
         audioRef.current.muted = false;
         audioRef.current.play().catch(() => {});
       }
+
       animFrameRef.current = requestAnimationFrame(drawFrame);
 
       setTimeout(() => {

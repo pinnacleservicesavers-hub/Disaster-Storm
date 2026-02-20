@@ -311,5 +311,31 @@ export function registerAIAdsRoutes(app: Express) {
     }
   });
 
+  app.get('/api/ai-ads/proxy-image', async (req: Request, res: Response) => {
+    try {
+      const url = req.query.url as string;
+      if (!url) return res.status(400).json({ error: 'url parameter required' });
+
+      const allowedHosts = ['oaidalleapiprodscus.blob.core.windows.net', 'dalleprodsec.blob.core.windows.net', 'images.openai.com'];
+      const parsed = new URL(url);
+      if (!allowedHosts.some(h => parsed.hostname.endsWith(h))) {
+        return res.status(403).json({ error: 'Image host not allowed' });
+      }
+
+      const imgResp = await fetch(url);
+      if (!imgResp.ok) throw new Error(`Upstream ${imgResp.status}`);
+
+      const contentType = imgResp.headers.get('content-type') || 'image/png';
+      const buffer = Buffer.from(await imgResp.arrayBuffer());
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Image proxy error:', error);
+      res.status(500).json({ error: 'Failed to proxy image' });
+    }
+  });
+
   console.log('🎨 AI Ads Assistant routes registered (all industries, sound studio enabled)');
 }
