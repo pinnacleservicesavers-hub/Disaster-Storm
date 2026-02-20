@@ -24,6 +24,7 @@ import { SiFacebook, SiInstagram, SiLinkedin, SiTiktok, SiGoogle, SiX } from 're
 import { Link2, CheckCircle2 } from 'lucide-react';
 import ModuleVoiceGuide from '@/components/ModuleVoiceGuide';
 import VideoAdPlayer from '@/components/VideoAdPlayer';
+import AIVideoGenerator from '@/components/AIVideoGenerator';
 
 interface AdResult {
   adCopy: string;
@@ -383,10 +384,14 @@ export default function ContentForge() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <AutonomousAgentBadge moduleName="ContentForge" />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl mb-6">
+          <TabsList className="grid grid-cols-5 w-full max-w-3xl mb-6">
             <TabsTrigger value="studio" className="flex items-center gap-2">
               <Wand2 className="w-4 h-4" />
               AI Studio
+            </TabsTrigger>
+            <TabsTrigger value="ai-video" className="flex items-center gap-2">
+              <Film className="w-4 h-4" />
+              AI Video
             </TabsTrigger>
             <TabsTrigger value="gallery" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
@@ -1098,6 +1103,10 @@ export default function ContentForge() {
                 )}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="ai-video">
+            <AIVideoGenerator />
           </TabsContent>
 
           <TabsContent value="gallery">

@@ -60,6 +60,7 @@ import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import stormLeadIntelligenceRoutes from "./routes/stormLeadIntelligence";
 import { registerAdCampaignRoutes } from "./routes/adCampaigns";
 import { registerAIAdsRoutes } from "./routes/aiAdsRoutes";
+import { registerVideoGenerationRoutes } from "./routes/videoGenerationRoutes";
 import { registerAIStormExpertRoutes } from "./routes/aiStormExpertRoutes";
 import { registerGrokAIRoutes } from "./routes/grokAIRoutes";
 import { registerAIChatRoutes } from "./routes/aiChatRoutes";
@@ -474,6 +475,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- AI Ads Assistant Routes ----
   registerAIAdsRoutes(app);
+  
+  // ---- Video Generation Routes ----
+  registerVideoGenerationRoutes(app);
   
   // ---- AI Storm Expert Routes ----
   registerAIStormExpertRoutes(app);

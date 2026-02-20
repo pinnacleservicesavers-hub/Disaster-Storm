@@ -595,14 +595,7 @@ export default function MediaVault() {
                 ]}
                 projectName="Sample Project"
               />
-              <AIVideoGenerator 
-                photos={[
-                  { id: 'v1', url: 'https://picsum.photos/seed/vid1/800/600', phase: 'before', timestamp: new Date().toISOString() },
-                  { id: 'v2', url: 'https://picsum.photos/seed/vid2/800/600', phase: 'during', timestamp: new Date().toISOString() },
-                  { id: 'v3', url: 'https://picsum.photos/seed/vid3/800/600', phase: 'after', timestamp: new Date().toISOString() }
-                ]}
-                projectName="Sample Project"
-              />
+              <AIVideoGenerator />
             </div>
 
             <div className="mt-8">

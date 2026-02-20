@@ -1,0 +1,173 @@
+You’re building a Contractor Media & Marketing Engine for EVERY industry.
+
+Tree work.
+House cleaning.
+Roofers.
+Landscapers.
+Plumbers.
+Electricians.
+Pressure washing.
+Housing contractors.
+
+This isn’t CapCut.
+
+This is a Contractor AI Growth Platform.
+
+Let’s build this the right way.
+
+🏗 WHAT YOU’RE ACTUALLY BUILDING
+“Contractor Ad Engine” (Working Name)
+
+An app where ANY contractor can:
+
+🎬 Generate ads
+
+🎙 Change voices
+
+🎵 Swap music
+
+💡 Adjust lighting
+
+😂 Insert memes
+
+📈 Pull trending formats
+
+📲 Export to TikTok, Facebook, Reels
+
+🧾 Auto-generate captions & hashtags
+
+And they just type:
+
+“Make a funny spring cleaning ad.”
+
+Boom. Video created.
+
+🧠 CORE MODULES YOUR APP NEEDS
+1️⃣ INDUSTRY SELECTOR
+
+When user logs in:
+
+Choose industry:
+
+Tree Service
+
+House Cleaning
+
+Roofing
+
+Plumbing
+
+HVAC
+
+Junk Removal
+
+Landscaping
+
+Pressure Washing
+
+General Contractor
+
+Apartment Turnover
+
+Commercial Cleaning
+
+Each industry has pre-built:
+
+• Hook lines
+• Offers
+• Meme templates
+• Visual styles
+
+2️⃣ AI SCRIPT GENERATOR
+
+User types:
+
+“Spring special for house cleaning.”
+
+App generates:
+
+Hook:
+“Your house deserves better.”
+
+Offer:
+“Deep clean 20% off.”
+
+Call to action:
+“Call today.”
+
+3️⃣ VIDEO ENGINE (THIS REPLACES CAPCUT)
+
+Use:
+
+FFmpeg (video rendering)
+
+Shotstack API (cloud editing)
+
+Cloudinary Video API
+
+Overlay effect library
+
+This lets your app:
+
+• Merge clips
+• Add animated text
+• Add lightning
+• Add meme GIFs
+• Add logos
+• Add music
+• Add captions
+
+4️⃣ AI VOICE SYSTEM
+
+Connect:
+
+ElevenLabs API
+
+OpenAI TTS
+
+User selects:
+
+• Deep male contractor voice
+• Friendly female cleaning voice
+• Funny energetic meme voice
+
+5️⃣ TRENDING MEME SCANNER
+
+This is powerful.
+
+Your app can:
+
+Pull trending:
+
+TikTok sounds (manual scrape)
+
+Meta Ad Library formats
+
+Giphy API
+
+Tenor API
+
+Reddit trending memes
+
+Then suggest:
+
+“Add this viral construction meme format.”
+
+6️⃣ STYLE MODES (VERY IMPORTANT)
+
+User clicks:
+
+🔥 Aggressive
+😂 Funny Meme
+🏡 Family Safe
+💎 Luxury
+⚡ Storm Emergency
+💰 Discount Push
+
+Each mode changes:
+
+• Text animation
+• Lighting preset
+• Voice tone
+• Music style
+• Effects intensity
