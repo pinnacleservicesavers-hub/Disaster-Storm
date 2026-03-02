@@ -1,0 +1,356 @@
+Shannon.
+
+We are going to design this like a real studio system, not a toy app.
+
+What you're building is:
+
+🎬 AI Cinematic Ad Engine
+“Hollywood Production System for Blue Collar America”
+
+This blueprint will be:
+
+Scalable
+
+Cloud deployable
+
+Ad-optimized
+
+Production ready
+
+Built for Storm App + WorkHub + ANY trade
+
+🏗 FULL PRODUCTION ARCHITECTURE
+🎯 SYSTEM GOAL
+
+Input:
+
+Story text
+
+Photo upload
+
+Industry type
+
+Output:
+
+4K cinematic movie trailer
+
+Voiceover
+
+Music
+
+Subtitles
+
+Logo reveal
+
+Auto-formatted versions for:
+
+Facebook
+
+Instagram
+
+YouTube
+
+TikTok
+
+Website landing page
+
+🧠 HIGH LEVEL ARCHITECTURE
+Frontend (React / Next.js)
+        ↓
+API Gateway
+        ↓
+Cinematic Engine Backend (FastAPI)
+        ↓
+AI Services Layer
+        ↓
+Media Processing Pipeline
+        ↓
+Cloud Storage + CDN
+        ↓
+Ad Distribution Engine
+1️⃣ FRONTEND LAYER (User Experience)
+Built With:
+
+Next.js 14
+
+Tailwind CSS
+
+Framer Motion
+
+Cloudinary Upload Widget
+
+Features:
+
+Drag & drop story
+
+Image upload
+
+Industry selector
+
+Voice style selector
+
+“Make It Cinematic” button
+
+Live progress animation
+
+Download options (Reel / YouTube / FB)
+
+2️⃣ API GATEWAY
+
+Handles:
+
+Authentication (JWT)
+
+Rate limiting
+
+Stripe billing (future monetization)
+
+File validation
+
+Recommended:
+
+Nginx
+
+AWS API Gateway
+
+Cloudflare Workers
+
+3️⃣ CINEMATIC ENGINE (Core Brain)
+Built With:
+
+FastAPI (Python)
+
+Celery (Async tasks)
+
+Redis (Queue system)
+
+PostgreSQL (Data storage)
+
+4️⃣ AI SERVICES LAYER
+🎬 Script Expansion
+
+Model: GPT-4o
+Purpose:
+
+Turn story into screenplay
+
+Create shot list
+
+Generate dramatic narration
+
+Create captions
+
+🎥 Video Generation
+
+Primary:
+
+Runway Gen-3 API
+
+Pika Labs API
+
+Future:
+
+Sora API
+
+🎙️ Voiceover
+
+ElevenLabs API
+
+Deep cinematic male/female voice
+
+🎶 Music
+
+Suno AI (Cinematic orchestral)
+
+Or licensed API music
+
+5️⃣ MEDIA PROCESSING PIPELINE
+
+Uses:
+
+FFmpeg
+
+MoviePy
+
+OpenCV
+
+LUT color grading
+
+Dolby-style audio mastering
+
+🎞 CINEMATIC PROCESS FLOW
+
+User uploads story + image
+
+GPT expands to screenplay
+
+GPT generates:
+
+Shot list
+
+Scene prompts
+
+Video API generates clips
+
+Voiceover generated
+
+Music generated
+
+FFmpeg stitches everything
+
+Logo reveal added
+
+Multiple aspect ratios rendered
+
+Stored in cloud bucket
+
+🔥 ULTRA CINEMATIC PROMPT ENGINE
+
+Use structured prompts like this:
+
+Scene: Storm Recovery
+Style: IMAX cinematic
+Camera: RED Komodo 6K
+Lighting: dramatic sunset backlight
+Motion: slow motion debris
+Audio: epic orchestral crescendo
+Mood: heroic resilience
+Color: high contrast teal & orange LUT
+
+This is what separates normal AI video from theater quality.
+
+6️⃣ CLOUD INFRASTRUCTURE
+
+Recommended Setup:
+
+Hosting
+
+AWS EC2 or Railway
+
+Or Replit deployment for MVP
+
+Storage
+
+AWS S3
+
+Cloudinary CDN
+
+Database
+
+PostgreSQL (RDS)
+
+Queue System
+
+Redis
+
+7️⃣ AUTO SOCIAL FORMAT ENGINE
+
+When final video completes:
+
+Automatically render:
+
+Platform	Format
+YouTube	16:9 4K
+Facebook	1:1
+Instagram	9:16 Reel
+TikTok	9:16
+Website	Hero Banner
+8️⃣ BRANDING LAYER
+
+Auto overlays:
+
+Strategic neon yellow accents
+
+Storm App logo animation
+
+WorkHub logo reveal
+
+Animated lower thirds
+
+Subtitle styling
+
+9️⃣ MONETIZATION LAYER (Optional)
+
+Future:
+
+Pay per cinematic ad
+
+Monthly subscription for contractors
+
+White-label version
+
+🔐 SECURITY & SCALING
+
+Role-based user accounts
+
+Watermark preview before payment
+
+Auto-delete temp files
+
+Scalable GPU instances
+
+Load balancer
+
+💰 ESTIMATED REAL COST TO RUN
+Item	Cost
+Video AI APIs	$0.50–$3 per clip
+Voiceover	$0.10–$0.30
+Music	$0.20–$1
+Storage	Minimal
+Server	$30–$150/month
+
+You could charge:
+
+$29 per ad
+
+Or $199/month unlimited
+
+🚀 WHAT MAKES THIS DIFFERENT
+
+This is NOT:
+
+Just AI video
+
+This IS:
+
+Cinematic narrative engine
+
+Blue collar storytelling platform
+
+Emotional marketing weapon
+
+Industry dominance system
+
+🏆 FINAL STRUCTURE SUMMARY
+User Upload
+   ↓
+Cinematic AI Script Engine
+   ↓
+Video Clip Generator
+   ↓
+Voiceover Generator
+   ↓
+Music Engine
+   ↓
+FFmpeg Master Render
+   ↓
+Multi-Platform Render
+   ↓
+Cloud Delivery + Download
+🌪 HOW THIS DOMINATES FOR STORM APP
+
+Imagine:
+Before & after tree removal.
+
+System turns it into:
+
+🎙 “When disaster strikes… they answer.”
+
+🌩 Lightning flash.
+🚛 Bucket truck rising in slow motion.
+🎶 Orchestral rise.
+🔥 Logo reveal.
+
+That’s not an ad.
+
+That’s a MOVIE TRAILER.

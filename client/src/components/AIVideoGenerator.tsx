@@ -337,8 +337,12 @@ export default function AIVideoGenerator() {
   const [versions, setVersions] = useState<VideoVersion[]>([]);
   const [activeVersion, setActiveVersion] = useState<number>(0);
   const [isEditing, setIsEditing] = useState(false);
+  const [brandPhoto, setBrandPhoto] = useState<File | null>(null);
+  const [enableVoiceover, setEnableVoiceover] = useState(true);
+  const [selectedElevenVoice, setSelectedElevenVoice] = useState('deep-male');
   const editChatRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: enginesData } = useQuery<{ success: boolean; engines: VideoEngine[] }>({
     queryKey: ['/api/video-gen/engines'],
@@ -430,7 +434,7 @@ export default function AIVideoGenerator() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast({ title: 'Describe Your Video', description: 'Tell the AI what video you want to create', variant: 'destructive' });
       return;
@@ -448,6 +452,34 @@ export default function AIVideoGenerator() {
       effectNames.length > 0 ? `Add effects: ${effectNames.join(', ')}.` : '',
       `Resolution: ${resolution}. Aspect ratio: ${aspectRatio}. Duration: ${duration} seconds.`,
     ].filter(Boolean).join(' ');
+
+    // Use the Hollywood cinematic endpoint when Cinematic AI is selected
+    if (selectedEngine === 'cinematic-ai') {
+      const formData = new FormData();
+      formData.append('prompt', enhancedPrompt);
+      formData.append('industry', selectedIndustry);
+      formData.append('voice', selectedElevenVoice);
+      formData.append('enableVoiceover', enableVoiceover ? 'true' : 'false');
+      formData.append('duration', duration);
+      formData.append('style', selectedStyle);
+      formData.append('multiFormat', 'true');
+      if (brandPhoto) formData.append('photo', brandPhoto);
+
+      try {
+        const res = await fetch('/api/video-gen/generate-cinematic', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success && data.job) {
+          setActiveJob(data.job);
+          toast({ title: '🎬 Hollywood Engine Started!', description: `Generating scenes, voiceover, and 3 social formats...` });
+          startPolling(data.job.engine, data.job.id);
+        } else {
+          toast({ title: 'Generation Failed', description: data.error || 'Could not start video generation', variant: 'destructive' });
+        }
+      } catch (err: any) {
+        toast({ title: 'Generation Failed', description: err.message || 'Network error', variant: 'destructive' });
+      }
+      return;
+    }
 
     generateMutation.mutate({
       engine: selectedEngine,
@@ -839,15 +871,100 @@ export default function AIVideoGenerator() {
                   placeholder={`Type what you want... e.g., "Make a funny aggressive ${currentIndustry?.name?.toLowerCase() || 'storm'} ad"`}
                   className="min-h-[80px] resize-none text-sm"
                 />
+              </div>
+
+              {/* Hollywood Features Panel - only for Cinematic AI */}
+              {selectedEngine === 'cinematic-ai' && (
+                <Card className="border border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20">
+                  <CardContent className="pt-4 pb-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Crown className="w-4 h-4 text-violet-500" />
+                      <span className="text-xs font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wide">Hollywood Engine Options</span>
+                    </div>
+
+                    {/* ElevenLabs Voiceover */}
+                    <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-violet-500" />
+                        <div>
+                          <p className="text-xs font-semibold">AI Trailer Voiceover</p>
+                          <p className="text-[10px] text-slate-500">ElevenLabs deep narrator</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select value={selectedElevenVoice} onValueChange={setSelectedElevenVoice} disabled={!enableVoiceover}>
+                          <SelectTrigger className="h-7 text-xs w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deep-male">Deep Male</SelectItem>
+                            <SelectItem value="dramatic">Dramatic</SelectItem>
+                            <SelectItem value="professional">Professional</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="energetic">Energetic</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <button
+                          onClick={() => setEnableVoiceover(!enableVoiceover)}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${enableVoiceover ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${enableVoiceover ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Brand Photo Upload */}
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Image className="w-4 h-4 text-violet-500" />
+                          <div>
+                            <p className="text-xs font-semibold">Brand Photo (Optional)</p>
+                            <p className="text-[10px] text-slate-500">Your crew/logo added as scene 1</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {brandPhoto && (
+                            <span className="text-[10px] text-green-600 font-medium max-w-[80px] truncate">{brandPhoto.name}</span>
+                          )}
+                          <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => photoInputRef.current?.click()}>
+                            {brandPhoto ? 'Change' : 'Upload'}
+                          </Button>
+                          {brandPhoto && (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs px-1 text-slate-400 hover:text-red-500" onClick={() => setBrandPhoto(null)}>✕</Button>
+                          )}
+                        </div>
+                      </div>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setBrandPhoto(f); }}
+                      />
+                    </div>
+
+                    {/* Social Format Info */}
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1"><span className="text-red-500">▶</span> YouTube 16:9</span>
+                      <span className="flex items-center gap-1"><span className="text-pink-500">◆</span> Reels 9:16</span>
+                      <span className="flex items-center gap-1"><span className="text-blue-500">f</span> Facebook 1:1</span>
+                      <span className="ml-auto text-green-600 font-medium">3 formats auto-rendered</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div>
                 <Button
-                  className="w-full mt-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold py-5"
+                  className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold py-5"
                   onClick={handleGenerate}
                   disabled={generateMutation.isPending || activeJob?.status === 'processing' || activeJob?.status === 'queued'}
                 >
                   {generateMutation.isPending || activeJob?.status === 'processing' || activeJob?.status === 'queued' ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating Hollywood Video...</>
                   ) : (
-                    <><Film className="w-4 h-4 mr-2" /> Generate AI Video</>
+                    <><Film className="w-4 h-4 mr-2" /> {selectedEngine === 'cinematic-ai' ? '🎬 Generate Hollywood Video' : 'Generate AI Video'}</>
                   )}
                 </Button>
               </div>
@@ -877,7 +994,7 @@ export default function AIVideoGenerator() {
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-base">
-                        <CheckCircle className="w-5 h-5 text-green-600" /> Video Ready
+                        <CheckCircle className="w-5 h-5 text-green-600" /> Hollywood Video Ready
                       </CardTitle>
                       <Badge className="bg-green-100 text-green-700 text-xs">{getEngineName(activeJob.engine)}</Badge>
                     </div>
@@ -886,14 +1003,55 @@ export default function AIVideoGenerator() {
                     <div className="rounded-xl overflow-hidden bg-black aspect-video">
                       <video src={activeJob.videoUrl} controls autoPlay className="w-full h-full object-contain" />
                     </div>
+
+                    {/* Narration Script */}
+                    {(activeJob as any).narrationScript && (
+                      <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Mic className="w-3.5 h-3.5 text-violet-500" />
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">AI Narration Script</span>
+                        </div>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{(activeJob as any).narrationScript}"</p>
+                      </div>
+                    )}
+
+                    {/* Social Format Downloads */}
+                    {(activeJob as any).formats && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                          <Smartphone className="w-3.5 h-3.5" /> Download for Social Media
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(activeJob as any).formats.youtube && (
+                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.youtube; a.download = `youtube-16x9-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-red-600 font-bold text-xs">▶ YouTube</span>
+                              <span className="text-slate-400 text-[10px]">16:9 HD</span>
+                            </Button>
+                          )}
+                          {(activeJob as any).formats.reels && (
+                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-pink-200 hover:bg-pink-50 dark:border-pink-800 dark:hover:bg-pink-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.reels; a.download = `reels-9x16-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-pink-600 font-bold text-xs">◆ Reels</span>
+                              <span className="text-slate-400 text-[10px]">9:16 Vertical</span>
+                            </Button>
+                          )}
+                          {(activeJob as any).formats.facebook && (
+                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.facebook; a.download = `facebook-square-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-blue-600 font-bold text-xs">f Facebook</span>
+                              <span className="text-slate-400 text-[10px]">1:1 Square</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <Button className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white" onClick={() => handleOpenEditor(activeJob)}>
                         <PenTool className="w-4 h-4 mr-1" /> Edit with AI
                       </Button>
                       <Button variant="outline" onClick={() => {
-                        const a = document.createElement('a'); a.href = activeJob.videoUrl!; a.download = `ai-video-${Date.now()}.mp4`; a.click();
+                        const a = document.createElement('a'); a.href = activeJob.videoUrl!; a.download = `cinematic-${Date.now()}.mp4`; a.click();
                       }}><Download className="w-4 h-4 mr-1" /> Download</Button>
-                      <Button variant="outline" onClick={() => { setActiveJob(null); setPrompt(''); }}>
+                      <Button variant="outline" onClick={() => { setActiveJob(null); setPrompt(''); setBrandPhoto(null); }}>
                         <RefreshCw className="w-4 h-4 mr-1" /> New
                       </Button>
                     </div>

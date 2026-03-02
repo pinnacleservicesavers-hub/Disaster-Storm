@@ -1,6 +1,22 @@
 import type { Request, Response } from "express";
 import type { Application } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { videoGenerationService } from "../services/videoGenerationService";
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = '/tmp/video-uploads';
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `upload-${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage: uploadStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 export function registerVideoGenerationRoutes(app: Application) {
 
@@ -51,6 +67,33 @@ export function registerVideoGenerationRoutes(app: Application) {
     } catch (error) {
       console.error('Error checking job status:', error);
       res.status(500).json({ error: 'Failed to check job status', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.post('/api/video-gen/generate-cinematic', upload.single('photo'), async (req: Request, res: Response) => {
+    try {
+      const { prompt, industry, voice, enableVoiceover, duration, style, multiFormat } = req.body;
+      if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+      const options: any = {
+        industry: industry || undefined,
+        voice: voice || 'deep-male',
+        enableVoiceover: enableVoiceover !== 'false',
+        duration: duration ? parseInt(duration) : 12,
+        style: style || undefined,
+        multiFormat: multiFormat !== 'false',
+      };
+
+      if (req.file) {
+        options.uploadedPhotoPath = req.file.path;
+        console.log(`📸 Uploaded brand photo: ${req.file.path}`);
+      }
+
+      const job = await videoGenerationService.generateVideo('cinematic-ai', prompt, options);
+      res.json({ success: true, job });
+    } catch (error) {
+      console.error('Cinematic generation error:', error);
+      res.status(500).json({ error: 'Failed to start cinematic video generation', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

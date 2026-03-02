@@ -8,6 +8,12 @@ export interface VideoGenOptions {
   aspectRatio?: string;
   resolution?: string;
   style?: string;
+  industry?: string;
+  enableVoiceover?: boolean;
+  voice?: string;
+  uploadedPhotoPath?: string;
+  textOverlay?: string;
+  multiFormat?: boolean;
 }
 
 export interface VideoGenJob {
@@ -20,6 +26,12 @@ export interface VideoGenJob {
   error?: string;
   createdAt: number;
   estimatedSeconds?: number;
+  narrationScript?: string;
+  formats?: {
+    youtube?: string;
+    reels?: string;
+    facebook?: string;
+  };
 }
 
 export interface VideoEngine {
@@ -527,11 +539,30 @@ export class VideoGenerationService {
     try {
       console.log(`🎬 [${job.id}] Starting Cinematic AI pipeline: ${numScenes} scenes, ${duration}s total`);
 
-      const scenePrompts = await this.generateScenePrompts(openai, prompt, numScenes, options.style);
-      console.log(`🎬 [${job.id}] Scene prompts generated:`, scenePrompts.map((s, i) => `Scene ${i + 1}: ${s.substring(0, 60)}...`));
+      // Step 1: Generate narration script (for voiceover)
+      let narrationScript = '';
+      if (options.enableVoiceover !== false) {
+        console.log(`🎙️ [${job.id}] Generating cinematic narration script...`);
+        narrationScript = await this.generateVideoNarration(openai, prompt, options.industry);
+        job.narrationScript = narrationScript;
+        console.log(`🎙️ [${job.id}] Script: "${narrationScript.substring(0, 80)}..."`);
+      }
 
+      // Step 2: Generate ultra-cinematic scene prompts
+      const scenePrompts = await this.generateScenePrompts(openai, prompt, numScenes, options.style, options.industry);
+      console.log(`🎬 [${job.id}] Scene prompts generated: ${scenePrompts.length} scenes`);
+
+      // Step 3: Generate AI scene images
       const imageFiles: string[] = [];
+
+      // If user uploaded a brand photo, use it as the first scene
+      if (options.uploadedPhotoPath && fs.existsSync(options.uploadedPhotoPath)) {
+        console.log(`📸 [${job.id}] Including uploaded brand photo as scene 1`);
+        imageFiles.push(options.uploadedPhotoPath);
+      }
+
       for (let i = 0; i < scenePrompts.length; i++) {
+        if (imageFiles.length >= numScenes) break;
         console.log(`🎬 [${job.id}] Generating scene ${i + 1}/${scenePrompts.length}...`);
         const imgPath = path.join(workDir, `scene_${i}.png`);
         const imgBuffer = await this.generateSceneImage(openai, scenePrompts[i]);
@@ -539,27 +570,50 @@ export class VideoGenerationService {
         imageFiles.push(imgPath);
       }
 
-      console.log(`🎬 [${job.id}] All scenes generated, compositing video...`);
-      const outputPath = path.join(workDir, 'output.mp4');
-      await this.compositeVideoWithFFmpeg(imageFiles, outputPath, sceneDuration, options);
+      // Step 4: Composite the main video
+      console.log(`🎬 [${job.id}] Compositing ${imageFiles.length} scenes into video...`);
+      const rawVideoPath = path.join(workDir, 'raw.mp4');
+      await this.compositeVideoWithFFmpeg(imageFiles, rawVideoPath, sceneDuration, options);
 
+      // Step 5: Generate ElevenLabs voiceover and mix in
+      let finalVideoPath = rawVideoPath;
+      if (options.enableVoiceover !== false && narrationScript) {
+        console.log(`🎙️ [${job.id}] Generating ElevenLabs voiceover...`);
+        const audioPath = path.join(workDir, 'voiceover.mp3');
+        const voiceGenerated = await this.generateElevenLabsVoiceover(narrationScript, options.voice || 'deep-male', audioPath);
+        if (voiceGenerated) {
+          console.log(`🎙️ [${job.id}] Mixing voiceover into video...`);
+          const audioVideoPath = path.join(workDir, 'with_audio.mp4');
+          await this.mixAudioIntoVideo(rawVideoPath, audioPath, audioVideoPath);
+          finalVideoPath = audioVideoPath;
+        }
+      }
+
+      // Step 6: Copy main video to public dir
       const publicDir = path.join(process.cwd(), 'public', 'generated-videos');
       fs.mkdirSync(publicDir, { recursive: true });
       const publicFile = `${job.id}.mp4`;
       const publicPath = path.join(publicDir, publicFile);
-      fs.copyFileSync(outputPath, publicPath);
-
+      fs.copyFileSync(finalVideoPath, publicPath);
       job.videoUrl = `/generated-videos/${publicFile}`;
-      job.thumbnailUrl = `/generated-videos/${job.id}_thumb.jpg`;
 
+      // Step 7: Generate thumbnail
+      job.thumbnailUrl = `/generated-videos/${job.id}_thumb.jpg`;
       try {
-        execSync(`ffmpeg -y -i "${outputPath}" -ss 1 -vframes 1 -vf scale=320:-1 "${path.join(publicDir, `${job.id}_thumb.jpg`)}" 2>/dev/null`);
+        execSync(`ffmpeg -y -i "${publicPath}" -ss 1 -vframes 1 -vf scale=320:-1 "${path.join(publicDir, `${job.id}_thumb.jpg`)}" 2>/dev/null`);
       } catch (e) {
         job.thumbnailUrl = undefined;
       }
 
+      // Step 8: Render additional social formats (9:16 Reels, 1:1 Facebook)
+      if (options.multiFormat !== false) {
+        console.log(`📱 [${job.id}] Rendering social media formats...`);
+        job.formats = await this.renderSocialFormats(finalVideoPath, publicDir, job.id);
+        console.log(`📱 [${job.id}] Formats ready: ${Object.keys(job.formats).join(', ')}`);
+      }
+
       job.status = 'completed';
-      console.log(`🎬 [${job.id}] Video complete: ${job.videoUrl}`);
+      console.log(`🎬 [${job.id}] ✅ Hollywood cinematic video complete: ${job.videoUrl}`);
 
     } catch (err) {
       console.error(`🎬 [${job.id}] Pipeline failed:`, err);
@@ -568,8 +622,143 @@ export class VideoGenerationService {
     }
   }
 
-  private async generateScenePrompts(openai: OpenAI, userPrompt: string, numScenes: number, style?: string): Promise<string[]> {
-    const styleNote = style ? `Visual style: ${style}.` : '';
+  private async generateVideoNarration(openai: OpenAI, prompt: string, industry?: string): Promise<string> {
+    const industryContext = industry ? `Industry: ${industry}. ` : '';
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You write Hollywood movie trailer narration scripts for contractor marketing videos. ${industryContext}
+Write a POWERFUL, dramatic voiceover script (40-60 words max) in the style of a blockbuster movie trailer deep narrator.
+Use short punchy sentences. Include a strong call to action at the end.
+Examples of tone: "When the storm hits... only the strongest survive. [Company] is the force that rebuilds what nature destroys. Call now. Get protected."
+Return ONLY the narration text, nothing else.`
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.9,
+      });
+      return response.choices[0]?.message?.content?.trim() || '';
+    } catch (err) {
+      console.error('Narration generation failed:', err);
+      return `When it matters most... professionals answer the call. Serving your community with excellence, speed, and guaranteed results. Call today. Get it done right.`;
+    }
+  }
+
+  private async generateElevenLabsVoiceover(script: string, voicePreset: string, outputPath: string): Promise<boolean> {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      console.log('🎙️ ElevenLabs API key not found, skipping voiceover');
+      return false;
+    }
+
+    // Map voice presets to ElevenLabs voice IDs
+    const voiceMap: Record<string, string> = {
+      'deep-male': 'onwK4e9ZLuTAKqWW03F9',     // Daniel - deep authoritative
+      'dramatic': 'VR6AewLTigWG4xSOukaG',        // Arnold - strong dramatic
+      'professional': 'pNInz6obpgDQGcFmaJgB',    // Adam - professional
+      'female': 'EXAVITQu4vr4xnSDxMaL',          // Bella - female
+      'energetic': 'yoZ06aMxZJJ28mfd3POQ',        // Sam - energetic
+    };
+    const voiceId = voiceMap[voicePreset] || voiceMap['deep-male'];
+
+    try {
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text: script,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: {
+            stability: 0.4,
+            similarity_boost: 0.8,
+            style: 0.6,
+            use_speaker_boost: true,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`🎙️ ElevenLabs API error: ${response.status} ${response.statusText}`);
+        return false;
+      }
+
+      const audioBuffer = await response.arrayBuffer();
+      fs.writeFileSync(outputPath, Buffer.from(audioBuffer));
+      console.log(`🎙️ Voiceover saved: ${outputPath} (${Math.round(audioBuffer.byteLength / 1024)}KB)`);
+      return true;
+    } catch (err) {
+      console.error('🎙️ ElevenLabs voiceover failed:', err);
+      return false;
+    }
+  }
+
+  private async mixAudioIntoVideo(videoPath: string, audioPath: string, outputPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest "${outputPath}" 2>&1`;
+      exec(cmd, { timeout: 60000 }, (error) => {
+        if (error) {
+          console.error('Audio mix failed, continuing without audio:', error.message);
+          fs.copyFileSync(videoPath, outputPath);
+        }
+        resolve();
+      });
+    });
+  }
+
+  private async renderSocialFormats(inputPath: string, publicDir: string, jobId: string): Promise<{ youtube?: string; reels?: string; facebook?: string }> {
+    const formats: { youtube?: string; reels?: string; facebook?: string } = {};
+
+    // YouTube is the default 16:9 output (already generated as main video)
+    formats.youtube = `/generated-videos/${jobId}.mp4`;
+
+    // Instagram Reels 9:16 vertical
+    await new Promise<void>((resolve) => {
+      const reelsPath = path.join(publicDir, `${jobId}_reels.mp4`);
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1" -c:v libx264 -preset ultrafast -crf 25 -c:a copy "${reelsPath}" 2>&1`;
+      exec(cmd, { timeout: 60000 }, (error) => {
+        if (!error) formats.reels = `/generated-videos/${jobId}_reels.mp4`;
+        resolve();
+      });
+    });
+
+    // Facebook 1:1 square
+    await new Promise<void>((resolve) => {
+      const squarePath = path.join(publicDir, `${jobId}_square.mp4`);
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1" -c:v libx264 -preset ultrafast -crf 25 -c:a copy "${squarePath}" 2>&1`;
+      exec(cmd, { timeout: 60000 }, (error) => {
+        if (!error) formats.facebook = `/generated-videos/${jobId}_square.mp4`;
+        resolve();
+      });
+    });
+
+    return formats;
+  }
+
+  private async generateScenePrompts(openai: OpenAI, userPrompt: string, numScenes: number, style?: string, industry?: string): Promise<string[]> {
+    const industryTone: Record<string, string> = {
+      'roofing': 'Roofing crew on steep roof at golden hour, dramatic skyline, safety harnesses, shingles flying, heroic silhouettes against clouds',
+      'tree-service': 'Arborist crew with chainsaw cutting massive oak tree, wood chips exploding, crane lifting enormous limb, neon safety gear, dramatic sky',
+      'hvac': 'HVAC technicians installing sleek new system, modern equipment gleaming, comfortable family in background, technical precision',
+      'pressure-washing': 'Pressure washer revealing pristine clean surface, satisfying debris blast in slow motion, dramatic transformation, water droplets catching light',
+      'landscaping': 'Landscaping crew transforming overgrown yard into paradise, drone perspective, vibrant green grass, sculpted hedges, satisfied homeowner',
+      'painting': 'Painters applying rich color to elegant home exterior, scaffolding, paint cascading, before and after transformation, warm light',
+      'plumbing': 'Expert plumber fixing complex pipe system, sparks of welding, polished copper pipes, clean workspace, skilled hands working precisely',
+      'electrical': 'Master electrician installing smart home panel, glowing circuits, modern technology, crisp clean wiring, proud professional',
+      'junk-removal': 'Powerful crew loading massive truck with debris, muscle and teamwork, dramatic before/after garage transformation, satisfied homeowner',
+      'general-contractor': 'Master builder overseeing epic renovation project, blueprints, hard hats, construction site at sunset, massive transformation underway',
+      'storm-restoration': 'Storm damage restoration crew working urgently, debris clearing, emergency power equipment, heroic workers against dramatic stormy sky',
+    };
+
+    const styleNote = style ? `Visual style: ${style}. ` : '';
+    const industryNote = industry && industryTone[industry] ? `Industry tone example: "${industryTone[industry]}". ` : '';
+    const cinematicSuffix = 'Ultra cinematic 4K photorealistic, dramatic lighting, RED Komodo camera look, shallow depth of field, anamorphic lens flare, IMAX quality, Dolby atmosphere, Oscar-winning cinematography, high dynamic range.';
 
     try {
       const response = await openai.chat.completions.create({
@@ -577,16 +766,24 @@ export class VideoGenerationService {
         messages: [
           {
             role: 'system',
-            content: `You are a cinematic video storyboard director for contractor and business marketing videos. Break the user's concept into ${numScenes} vivid, photorealistic scene descriptions for AI image generation. Each scene must show PEOPLE IN ACTION - workers, crews, customers, real human activity. Never describe static objects alone. ${styleNote}
+            content: `You are a Hollywood movie trailer cinematographer creating storyboard prompts for AI image generation. Break the concept into ${numScenes} ULTRA-CINEMATIC scene descriptions.
 
-Return ONLY a JSON array of ${numScenes} strings. Each string is a detailed image generation prompt (50-80 words) describing the scene with specific visual details, lighting, camera angle, and human subjects performing actions.`
+RULES:
+- Every scene MUST show REAL PEOPLE IN ACTION - workers, crews, customers actively doing something
+- Use movie-trailer cinematic language: dramatic angles, golden hour, slow motion implied, hero shots
+- Include specific camera directions: extreme close-up, wide establishing shot, Dutch angle, over-shoulder, drone aerial
+- Make it feel like a blockbuster movie, not a stock photo
+- ${styleNote}${industryNote}
+- Append to every scene: "${cinematicSuffix}"
+
+Return ONLY a JSON array of ${numScenes} strings. Each string is 60-90 words.`
           },
           {
             role: 'user',
             content: userPrompt
           }
         ],
-        temperature: 0.8,
+        temperature: 0.85,
       });
 
       const content = response.choices[0]?.message?.content || '';
@@ -601,13 +798,14 @@ Return ONLY a JSON array of ${numScenes} strings. Each string is a detailed imag
       console.error('Scene prompt generation failed, using fallback:', err);
     }
 
+    const base = `${userPrompt}, ${cinematicSuffix}`;
     const fallbackScenes = [
-      `Professional workers in action, ${userPrompt}, wide establishing shot, golden hour lighting, dynamic composition, photorealistic, people actively working, team coordination visible`,
-      `Close-up detail shot of skilled hands at work, ${userPrompt}, dramatic lighting, shallow depth of field, showcasing expertise and precision, real workers in frame`,
-      `Satisfied customer shaking hands with professional crew, ${userPrompt}, warm natural lighting, genuine smiles, completed project visible in background, trust and satisfaction`,
-      `Aerial perspective of completed work, ${userPrompt}, drone shot, late afternoon light, impressive scope of project visible, crew members visible on site`,
-      `Team loading professional equipment into trucks, ${userPrompt}, early morning light, determined expressions, branded vehicles, ready for action`,
-      `Before and after transformation, ${userPrompt}, split composition, dramatic improvement visible, proud crew standing by finished work`,
+      `Wide establishing hero shot: professional crew arriving on scene, ${base}, golden hour silhouettes, determination on their faces, branded vehicles pulling up dramatically`,
+      `Extreme close-up of expert hands performing skilled work, ${base}, shallow depth of field bokeh, sweat and precision, tools gleaming in dramatic sidelight`,
+      `Over-shoulder shot of crew lead surveying massive project scope, ${base}, Dutch angle camera, team working furiously in background, epic scale visible`,
+      `Ground-level dramatic angle: worker in foreground, project transformation behind, ${base}, debris or materials in slow-motion implied, heroic framing`,
+      `Satisfied customer shaking hands with crew chief, ${base}, warm afternoon light, genuine emotion, completed transformation visible in background`,
+      `Aerial drone pullback revealing completed stunning transformation, ${base}, crew visible below celebrating, neighborhood impressed, sun hitting perfect angles`,
     ];
     return fallbackScenes.slice(0, numScenes);
   }
