@@ -4,6 +4,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { videoGenerationService } from "../services/videoGenerationService";
+import { replicateVideoService } from "../services/replicateVideoService";
 
 const uploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -233,6 +234,53 @@ Be creative in translating casual instructions into professional video direction
       console.error('Error processing video edit:', error);
       res.status(500).json({ error: 'Failed to process edit', details: error instanceof Error ? error.message : 'Unknown error' });
     }
+  });
+
+  // ─── Live-Action Diffusion Routes (Replicate / SVD) ─────────────────────────
+
+  // GET motion profiles
+  app.get('/api/video-gen/motion-profiles', (_req: Request, res: Response) => {
+    res.json({
+      profiles: replicateVideoService.getMotionProfiles(),
+      configured: replicateVideoService.isConfigured(),
+    });
+  });
+
+  // POST start live-action generation from uploaded photo
+  app.post('/api/video-gen/live-action', upload.single('photo'), async (req: Request, res: Response) => {
+    try {
+      const { motionProfileId } = req.body;
+      const photoFile = req.file;
+
+      if (!photoFile) {
+        return res.status(400).json({ error: 'Photo file required' });
+      }
+
+      const imageBuffer = fs.readFileSync(photoFile.path);
+      const mimeType = photoFile.mimetype || 'image/jpeg';
+
+      const job = await replicateVideoService.startLiveActionGeneration(
+        imageBuffer,
+        mimeType,
+        motionProfileId || 'storm-recovery',
+      );
+
+      // Clean up temp file
+      try { fs.unlinkSync(photoFile.path); } catch {}
+
+      res.json({ success: true, job });
+    } catch (error) {
+      console.error('Live-action start error:', error);
+      res.status(500).json({ error: 'Failed to start live-action generation', details: error instanceof Error ? error.message : 'Unknown' });
+    }
+  });
+
+  // GET live-action job status
+  app.get('/api/video-gen/live-action/:jobId', async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const job = await replicateVideoService.checkJobStatus(jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json({ job });
   });
 
   console.log('🎬 Video Generation routes registered');

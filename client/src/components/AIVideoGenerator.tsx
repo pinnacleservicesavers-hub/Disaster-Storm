@@ -337,6 +337,14 @@ export default function AIVideoGenerator() {
   const [versions, setVersions] = useState<VideoVersion[]>([]);
   const [activeVersion, setActiveVersion] = useState<number>(0);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Live-Action (Replicate SVD) state
+  const [liveActionPhoto, setLiveActionPhoto] = useState<File | null>(null);
+  const [liveActionPhotoPreview, setLiveActionPhotoPreview] = useState<string | null>(null);
+  const [liveActionMotionProfile, setLiveActionMotionProfile] = useState<string>('storm-recovery');
+  const [liveActionJob, setLiveActionJob] = useState<any | null>(null);
+  const [liveActionPolling, setLiveActionPolling] = useState(false);
+  const [liveActionSubmitting, setLiveActionSubmitting] = useState(false);
   const [brandPhoto, setBrandPhoto] = useState<File | null>(null);
   const [enableVoiceover, setEnableVoiceover] = useState(true);
   const [selectedElevenVoice, setSelectedElevenVoice] = useState('deep-male');
@@ -348,7 +356,13 @@ export default function AIVideoGenerator() {
     queryKey: ['/api/video-gen/engines'],
   });
 
+  const { data: motionProfilesData } = useQuery<{ profiles: any[]; configured: boolean }>({
+    queryKey: ['/api/video-gen/motion-profiles'],
+  });
+
   const engines = enginesData?.engines || [];
+  const motionProfiles = motionProfilesData?.profiles || [];
+  const svdConfigured = motionProfilesData?.configured ?? false;
 
   const generateMutation = useMutation({
     mutationFn: async (params: { engine: string; prompt: string; options: any }) => {
@@ -491,6 +505,61 @@ export default function AIVideoGenerator() {
   const handleGenerateScript = () => {
     const input = scriptInput.trim() || `Create a ${selectedStyle} ad for ${industries.find(i => i.id === selectedIndustry)?.name}`;
     scriptMutation.mutate({ industry: selectedIndustry, style: selectedStyle, input });
+  };
+
+  const handleLiveActionPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLiveActionPhoto(file);
+    const url = URL.createObjectURL(file);
+    setLiveActionPhotoPreview(url);
+  };
+
+  const handleStartLiveAction = async () => {
+    if (!liveActionPhoto) {
+      toast({ title: 'Photo required', description: 'Upload a job site photo to generate live-action video.', variant: 'destructive' });
+      return;
+    }
+    setLiveActionSubmitting(true);
+    setLiveActionJob(null);
+    try {
+      const formData = new FormData();
+      formData.append('photo', liveActionPhoto);
+      formData.append('motionProfileId', liveActionMotionProfile);
+      const res = await fetch('/api/video-gen/live-action', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success && data.job) {
+        setLiveActionJob(data.job);
+        toast({ title: '🎬 Live-Action Pipeline Started!', description: 'Stable Video Diffusion is animating your photo...' });
+        if (data.job.status !== 'completed' && data.job.status !== 'failed') {
+          setLiveActionPolling(true);
+          const poll = setInterval(async () => {
+            try {
+              const sr = await fetch(`/api/video-gen/live-action/${data.job.id}`);
+              const sd = await sr.json();
+              if (sd.job) {
+                setLiveActionJob({ ...sd.job });
+                if (sd.job.status === 'completed' || sd.job.status === 'failed') {
+                  clearInterval(poll);
+                  setLiveActionPolling(false);
+                  if (sd.job.status === 'completed') {
+                    toast({ title: '✅ Live-Action Video Ready!', description: 'Your photo is now a cinematic movie scene.' });
+                  } else {
+                    toast({ title: 'Generation failed', description: sd.job.error || 'Check Replicate API key', variant: 'destructive' });
+                  }
+                }
+              }
+            } catch {}
+          }, 5000);
+        }
+      } else {
+        toast({ title: 'Error', description: data.error || 'Failed to start', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
+    } finally {
+      setLiveActionSubmitting(false);
+    }
   };
 
   const searchMemes = async () => {
@@ -690,9 +759,14 @@ export default function AIVideoGenerator() {
   return (
     <div className="space-y-4">
       <Tabs value={mainTab} onValueChange={setMainTab}>
-        <TabsList className="grid grid-cols-7 w-full max-w-4xl">
+        <TabsList className="grid grid-cols-8 w-full max-w-4xl">
           <TabsTrigger value="create" className="flex items-center gap-1.5 text-xs">
             <Film className="w-3.5 h-3.5" /> Create
+          </TabsTrigger>
+          <TabsTrigger value="live" className="flex items-center gap-1.5 text-xs relative">
+            <Video className="w-3.5 h-3.5 text-orange-500" />
+            <span className="text-orange-600 font-bold">Live</span>
+            <span className="absolute -top-1 -right-1 text-[7px] bg-orange-500 text-white px-1 rounded-full">NEW</span>
           </TabsTrigger>
           <TabsTrigger value="edit" className="flex items-center gap-1.5 text-xs relative">
             <PenTool className="w-3.5 h-3.5" /> Edit
@@ -1203,6 +1277,337 @@ export default function AIVideoGenerator() {
                   )}
                 </>
               )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="live">
+          <div className="space-y-4">
+            {/* Hero Banner */}
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-slate-900 via-orange-950 to-slate-900 p-6 border border-orange-800/50">
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #f97316 0%, transparent 60%), radial-gradient(circle at 70% 50%, #dc2626 0%, transparent 60%)' }} />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-orange-500/20 rounded-lg border border-orange-500/40">
+                    <Video className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">Image → Live-Action Cinema</h2>
+                    <p className="text-orange-300 text-sm">Stable Video Diffusion • Real motion • Not a slideshow</p>
+                  </div>
+                  <Badge className="ml-auto bg-orange-500/20 text-orange-300 border-orange-500/40 text-xs">Powered by SVD</Badge>
+                </div>
+                <p className="text-slate-300 text-sm mt-2">
+                  Upload one job site photo. AI reconstructs depth, simulates physics, adds wind, camera motion, and atmospheric dynamics — turning it into a <strong className="text-orange-300">real 4-second cinematic scene</strong>.
+                </p>
+                <div className="flex flex-wrap gap-3 mt-3 text-xs text-slate-400">
+                  {['Depth Reconstruction', 'Physics Simulation', 'Camera Motion', 'Wind Dynamics', 'Atmospheric FX', 'Color Grade'].map(f => (
+                    <span key={f} className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-orange-500" />{f}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Main Grid */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Left: Controls */}
+              <div className="space-y-4">
+
+                {/* Activation Status */}
+                {!svdConfigured && (
+                  <Card className="border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start gap-3">
+                        <Lock className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-bold text-amber-800 dark:text-amber-300 text-sm">Activate Live-Action Engine</p>
+                          <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                            Add your <strong>REPLICATE_API_TOKEN</strong> secret to unlock real image-to-video diffusion.
+                            Free account at replicate.com — first clips are free, then ~$0.05 each.
+                          </p>
+                          <div className="mt-2 bg-slate-900 rounded p-2 font-mono text-xs text-green-400">
+                            Secret name: REPLICATE_API_TOKEN
+                          </div>
+                          <p className="text-amber-600 dark:text-amber-500 text-[11px] mt-2">
+                            You can still configure everything below — generation activates instantly once the key is added.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {svdConfigured && (
+                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 border border-green-300 dark:border-green-700 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Replicate API connected — Live-Action engine ready</span>
+                  </div>
+                )}
+
+                {/* Photo Upload */}
+                <Card className="border-2 border-orange-200 dark:border-orange-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Image className="w-4 h-4 text-orange-500" /> Upload Job Site Photo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {liveActionPhotoPreview ? (
+                      <div className="relative rounded-lg overflow-hidden">
+                        <img src={liveActionPhotoPreview} alt="Upload preview" className="w-full h-40 object-cover rounded-lg" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
+                          <div>
+                            <p className="text-white text-xs font-medium">{liveActionPhoto?.name}</p>
+                            <p className="text-slate-300 text-[10px]">{liveActionPhoto ? (liveActionPhoto.size / 1024).toFixed(0) + ' KB' : ''}</p>
+                          </div>
+                          <button onClick={() => { setLiveActionPhoto(null); setLiveActionPhotoPreview(null); }} className="ml-auto text-white/80 hover:text-white text-xs bg-black/40 px-2 py-1 rounded">Change</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-orange-300 dark:border-orange-700 rounded-lg cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors">
+                        <Video className="w-10 h-10 text-orange-400 mb-2" />
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Drop your photo here</p>
+                        <p className="text-xs text-slate-500 mt-1">Bucket truck, roof crew, job site — any image</p>
+                        <p className="text-xs text-orange-500 mt-2 font-medium">Click to browse</p>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLiveActionPhotoChange} />
+                      </label>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Motion Profile */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-violet-500" /> Cinematic Motion Profile
+                      <Badge className="ml-auto text-[10px] bg-violet-100 text-violet-700">{motionProfiles.length} Profiles</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 gap-2">
+                      {motionProfiles.map((profile) => (
+                        <button
+                          key={profile.id}
+                          onClick={() => setLiveActionMotionProfile(profile.id)}
+                          className={`text-left p-3 rounded-lg border-2 transition-all ${liveActionMotionProfile === profile.id
+                            ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{profile.name}</span>
+                            {liveActionMotionProfile === profile.id && <CheckCircle className="w-3.5 h-3.5 text-orange-500" />}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{profile.description}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded">Motion: {profile.motionBucketId > 100 ? 'High' : profile.motionBucketId > 70 ? 'Medium' : 'Subtle'}</span>
+                            <span className="text-[9px] text-slate-400 italic truncate">Camera: {profile.camera.substring(0, 30)}...</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Active Motion Profile Details */}
+                {liveActionMotionProfile && (() => {
+                  const profile = motionProfiles.find(p => p.id === liveActionMotionProfile);
+                  if (!profile) return null;
+                  return (
+                    <Card className="border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                      <CardContent className="pt-3 pb-3">
+                        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-2">Director's Notes — {profile.name}</p>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div><span className="text-slate-400">Camera:</span> <span className="text-slate-700 dark:text-slate-300">{profile.camera}</span></div>
+                          <div><span className="text-slate-400">Lighting:</span> <span className="text-slate-700 dark:text-slate-300">{profile.lighting}</span></div>
+                          <div><span className="text-slate-400">Wind:</span> <span className="text-slate-700 dark:text-slate-300">{profile.wind}</span></div>
+                          <div><span className="text-slate-400">Atmosphere:</span> <span className="text-slate-700 dark:text-slate-300">{profile.atmosphere}</span></div>
+                        </div>
+                        <div className="mt-2">
+                          <span className="text-[10px] text-slate-400">Visual Elements: </span>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400">{profile.elements.join(' • ')}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleStartLiveAction}
+                  disabled={liveActionSubmitting || liveActionPolling || !liveActionPhoto}
+                  className="w-full h-12 text-base font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white border-0 shadow-lg"
+                >
+                  {liveActionSubmitting || liveActionPolling ? (
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> {liveActionPolling ? 'Animating your photo...' : 'Submitting...'}</>
+                  ) : (
+                    <><Video className="w-5 h-5 mr-2" /> Generate Live-Action Scene</>
+                  )}
+                </Button>
+
+                {/* Tech Stack */}
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                  <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-2">Diffusion Pipeline</p>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    {[
+                      { step: '01', label: 'Depth Estimation', desc: 'MiDaS 3D reconstruction', color: 'text-blue-400' },
+                      { step: '02', label: 'Motion Synthesis', desc: 'Stable Video Diffusion', color: 'text-purple-400' },
+                      { step: '03', label: 'Physics Layer', desc: 'Wind, gravity, dynamics', color: 'text-green-400' },
+                      { step: '04', label: 'Temporal Fix', desc: 'Frame consistency pass', color: 'text-yellow-400' },
+                      { step: '05', label: 'Color Grade', desc: 'Teal & orange LUT', color: 'text-orange-400' },
+                    ].map(s => (
+                      <div key={s.step} className="flex items-center gap-2">
+                        <span className="text-slate-600">{s.step}</span>
+                        <span className={`font-bold ${s.color}`}>{s.label}</span>
+                        <span className="text-slate-500 ml-auto">{s.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Output */}
+              <div className="space-y-4">
+                {/* Status / Output area */}
+                {!liveActionJob && !liveActionSubmitting && (
+                  <Card className="h-full min-h-80 flex items-center justify-center border-2 border-dashed border-orange-200 dark:border-orange-800">
+                    <CardContent className="text-center py-12">
+                      <div className="w-20 h-20 mx-auto mb-4 bg-orange-100 dark:bg-orange-950/40 rounded-full flex items-center justify-center">
+                        <Clapperboard className="w-10 h-10 text-orange-400" />
+                      </div>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-300">Your Movie Scene</p>
+                      <p className="text-sm text-slate-500 mt-1">Upload a photo and click Generate</p>
+                      <div className="mt-4 space-y-2 text-xs text-slate-400">
+                        <p>📸 One photo → 🎬 4-second cinematic clip</p>
+                        <p>Real motion • Real physics • Real depth</p>
+                        <p>~60-90 seconds to generate</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {(liveActionSubmitting || liveActionPolling) && (
+                  <Card className="border-2 border-orange-300 dark:border-orange-700">
+                    <CardContent className="pt-6 pb-6 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 relative">
+                        <div className="w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+                        <Video className="w-6 h-6 text-orange-500 absolute inset-0 m-auto" />
+                      </div>
+                      <p className="font-bold text-slate-800 dark:text-slate-200">Stable Video Diffusion Active</p>
+                      <p className="text-sm text-slate-500 mt-1">Reconstructing depth and simulating physics...</p>
+                      <div className="mt-4 space-y-2 text-xs text-slate-500">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                          <span>GPU processing your image</span>
+                        </div>
+                        <p className="text-slate-400">~60-90 seconds • Teal & orange LUT applied on completion</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {liveActionJob?.status === 'failed' && (
+                  <Card className="border-2 border-red-300 dark:border-red-800">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-red-700 dark:text-red-400">Generation Failed</p>
+                          <p className="text-sm text-red-600 dark:text-red-500 mt-1">{liveActionJob.error}</p>
+                          {liveActionJob.error?.includes('REPLICATE_API_TOKEN') && (
+                            <p className="text-xs text-slate-500 mt-2">Add your Replicate API token to the Replit Secrets panel.</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {liveActionJob?.status === 'completed' && liveActionJob.videoUrl && (
+                  <div className="space-y-4">
+                    <Card className="border-2 border-green-400 dark:border-green-600">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2 text-green-700 dark:text-green-400">
+                          <CheckCircle className="w-4 h-4" /> Live-Action Scene Ready
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <video
+                          src={liveActionJob.videoUrl}
+                          controls
+                          autoPlay
+                          loop
+                          className="w-full rounded-lg shadow-xl"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => { const a = document.createElement('a'); a.href = liveActionJob.videoUrl; a.download = `live-action-${Date.now()}.mp4`; a.click(); }}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm"
+                          >
+                            <Download className="w-4 h-4 mr-1" /> Download MP4
+                          </Button>
+                          <Button variant="outline" onClick={handleStartLiveAction} className="text-sm">
+                            <RefreshCw className="w-4 h-4 mr-1" /> Regenerate
+                          </Button>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 text-xs space-y-1">
+                          <div className="flex justify-between"><span className="text-slate-400">Engine</span><span className="text-slate-700 dark:text-slate-300 font-medium">Stable Video Diffusion</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Motion Profile</span><span className="text-slate-700 dark:text-slate-300 font-medium">{motionProfiles.find(p => p.id === liveActionJob.motionProfile)?.name || liveActionJob.motionProfile}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Color Grade</span><span className="text-slate-700 dark:text-slate-300 font-medium">Teal & Orange LUT</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Format</span><span className="text-slate-700 dark:text-slate-300 font-medium">MP4 / H.264</span></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* What's in the video */}
+                    {(() => {
+                      const profile = motionProfiles.find(p => p.id === liveActionJob.motionProfile);
+                      if (!profile) return null;
+                      return (
+                        <Card className="bg-slate-900 border-slate-700">
+                          <CardContent className="pt-4">
+                            <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-3">What's in this scene</p>
+                            <div className="space-y-1.5">
+                              {profile.elements.map((el: string, i: number) => (
+                                <div key={i} className="flex items-center gap-2 text-xs">
+                                  <span className="text-orange-500">▶</span>
+                                  <span className="text-slate-300">{el}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Comparison: Old vs New */}
+                <Card className="border border-slate-200 dark:border-slate-700">
+                  <CardContent className="pt-4">
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-3">This vs Old Approach</p>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-3 border border-red-200 dark:border-red-800">
+                        <p className="font-bold text-red-700 dark:text-red-400 mb-2">❌ Old: Photo Slideshow</p>
+                        <ul className="space-y-1 text-red-600 dark:text-red-500 text-[10px]">
+                          <li>• Static images with pan/zoom</li>
+                          <li>• Ken Burns effect only</li>
+                          <li>• No real motion</li>
+                          <li>• Looks like PowerPoint</li>
+                        </ul>
+                      </div>
+                      <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3 border border-green-300 dark:border-green-700">
+                        <p className="font-bold text-green-700 dark:text-green-400 mb-2">✅ New: Live-Action AI</p>
+                        <ul className="space-y-1 text-green-600 dark:text-green-500 text-[10px]">
+                          <li>• Real depth reconstruction</li>
+                          <li>• Wind, physics, motion</li>
+                          <li>• Camera movement</li>
+                          <li>• Theater quality</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </TabsContent>

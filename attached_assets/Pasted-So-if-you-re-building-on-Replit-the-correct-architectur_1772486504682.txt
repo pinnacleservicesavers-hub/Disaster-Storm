@@ -1,0 +1,212 @@
+So if you're building on Replit, the correct architecture is:
+
+Replit = Control Center
+External GPU APIs = Movie Engine
+
+That is how you do this properly.
+
+You will:
+
+Upload photo in Replit
+
+Send image to video API (Runway / Pika)
+
+Receive cinematic video
+
+Process it
+
+Output formatted ads
+
+That is production-ready and realistic.
+
+🎬 WHAT YOU CAN BUILD FULLY INSIDE REPLIT
+
+You can build:
+
+• Upload system
+• Cinematic prompt engine
+• Image-to-video API calls
+• Video post-processing
+• Multi-format export
+• Storage
+• User job tracking
+
+That’s what I’m giving you now.
+
+🏗 STEP 1 — INSTALL DEPENDENCIES IN REPLIT
+
+Open Shell and run:
+
+pip install fastapi uvicorn python-multipart requests pillow moviepy ffmpeg-python redis celery boto3
+🧠 STEP 2 — PROJECT STRUCTURE
+
+Create this:
+
+/app
+  main.py
+  worker.py
+  cinematic.py
+  config.py
+/uploads
+/renders
+⚙️ STEP 3 — CONFIG FILE
+
+Create config.py
+
+import os
+
+RUNWAY_API_KEY = os.getenv("RUNWAY_API_KEY")
+PIKA_API_KEY = os.getenv("PIKA_API_KEY")
+
+Then set your API keys in Replit Secrets.
+
+🎥 STEP 4 — CINEMATIC PROMPT ENGINE
+
+Create cinematic.py
+
+def build_prompt(industry):
+    base = """
+    Ultra realistic 4K cinematic live action scene,
+    dynamic camera movement,
+    realistic physics motion,
+    volumetric lighting,
+    anamorphic lens flare,
+    IMAX film quality,
+    shallow depth of field,
+    cinematic motion blur,
+    theatrical realism
+    """
+
+    if industry == "storm":
+        return base + ", moving storm clouds, wind interaction, debris particles"
+    elif industry == "roofing":
+        return base + ", dramatic rooftop scene, sunlight breaking through clouds"
+    elif industry == "mechanic":
+        return base + ", sparks flying, gritty garage lighting"
+    else:
+        return base
+🚀 STEP 5 — MAIN FASTAPI APP
+
+Create main.py
+
+from fastapi import FastAPI, UploadFile, File, Form
+import requests
+import uuid
+import os
+from cinematic import build_prompt
+from config import RUNWAY_API_KEY
+from moviepy.editor import VideoFileClip
+
+app = FastAPI()
+
+UPLOAD_DIR = "uploads"
+RENDER_DIR = "renders"
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(RENDER_DIR, exist_ok=True)
+
+@app.post("/generate-movie/")
+async def generate_movie(
+    industry: str = Form(...),
+    image: UploadFile = File(...)
+):
+    job_id = str(uuid.uuid4())
+    image_path = f"{UPLOAD_DIR}/{job_id}.png"
+
+    with open(image_path, "wb") as f:
+        f.write(await image.read())
+
+    prompt = build_prompt(industry)
+
+    # Example Runway-style request (replace with real endpoint)
+    response = requests.post(
+        "https://api.runwayml.com/v1/image_to_video",
+        headers={
+            "Authorization": f"Bearer {RUNWAY_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "image_url": "YOUR_PUBLIC_IMAGE_URL",
+            "prompt": prompt,
+            "duration": 6
+        }
+    )
+
+    result = response.json()
+
+    video_url = result.get("video_url")
+
+    if video_url:
+        video_response = requests.get(video_url)
+        video_path = f"{RENDER_DIR}/{job_id}.mp4"
+        with open(video_path, "wb") as f:
+            f.write(video_response.content)
+
+        return {"status": "success", "video": video_path}
+
+    return {"status": "failed"}
+🎞 STEP 6 — AUTO FORMAT FOR SOCIAL MEDIA
+
+Add this function inside main.py:
+
+def format_video(video_path, job_id):
+    clip = VideoFileClip(video_path)
+
+    clip.resize((1080, 1920)).write_videofile(f"renders/{job_id}_reel.mp4")
+    clip.resize((1920, 1080)).write_videofile(f"renders/{job_id}_youtube.mp4")
+    clip.resize((1080, 1080)).write_videofile(f"renders/{job_id}_facebook.mp4")
+
+Call it after saving the video.
+
+🔐 STEP 7 — START SERVER
+
+In Replit run:
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+🎬 WHAT THIS SYSTEM NOW DOES
+
+User uploads image
+
+Industry selected
+
+Cinematic prompt auto-generated
+
+Sent to image-to-video AI
+
+Video returned
+
+Saved
+
+Auto formatted for all platforms
+
+🚨 IMPORTANT
+
+For this to work:
+
+You must:
+
+• Upload image to public URL first
+• Or use Cloudinary for hosting
+• Because Runway/Pika require public image URL
+
+Replit files are not automatically public.
+
+🔥 IF YOU WANT IT EVEN STRONGER
+
+Add:
+
+• Cloudinary upload
+• Job queue with Redis
+• Progress polling endpoint
+• Watermark preview
+• Branding overlay
+
+🎯 REAL TALK
+
+This version is:
+✔ Production realistic
+✔ Fully buildable on Replit
+✔ No GPU required
+✔ Scalable
+
+The full self-hosted GPU cinema engine cannot run inside Replit.
