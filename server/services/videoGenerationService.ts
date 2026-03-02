@@ -31,6 +31,8 @@ export interface VideoGenJob {
     youtube?: string;
     reels?: string;
     facebook?: string;
+    tiktok?: string;
+    website?: string;
   };
 }
 
@@ -589,7 +591,21 @@ export class VideoGenerationService {
         }
       }
 
-      // Step 6: Copy main video to public dir
+      // Step 6: Apply cinematic color grading (teal & orange LUT)
+      console.log(`🎨 [${job.id}] Applying cinematic color grade...`);
+      const gradedPath = path.join(workDir, 'graded.mp4');
+      await this.applyColorGrading(finalVideoPath, gradedPath);
+      finalVideoPath = gradedPath;
+
+      // Step 7: Burn in cinematic subtitles/captions
+      if (narrationScript) {
+        console.log(`📝 [${job.id}] Burning cinematic captions...`);
+        const captionedPath = path.join(workDir, 'captioned.mp4');
+        await this.burnSubtitlesIntoVideo(gradedPath, captionedPath, narrationScript, duration);
+        finalVideoPath = captionedPath;
+      }
+
+      // Step 8: Copy master video to public dir
       const publicDir = path.join(process.cwd(), 'public', 'generated-videos');
       fs.mkdirSync(publicDir, { recursive: true });
       const publicFile = `${job.id}.mp4`;
@@ -597,7 +613,7 @@ export class VideoGenerationService {
       fs.copyFileSync(finalVideoPath, publicPath);
       job.videoUrl = `/generated-videos/${publicFile}`;
 
-      // Step 7: Generate thumbnail
+      // Step 9: Generate thumbnail
       job.thumbnailUrl = `/generated-videos/${job.id}_thumb.jpg`;
       try {
         execSync(`ffmpeg -y -i "${publicPath}" -ss 1 -vframes 1 -vf scale=320:-1 "${path.join(publicDir, `${job.id}_thumb.jpg`)}" 2>/dev/null`);
@@ -605,11 +621,11 @@ export class VideoGenerationService {
         job.thumbnailUrl = undefined;
       }
 
-      // Step 8: Render additional social formats (9:16 Reels, 1:1 Facebook)
+      // Step 10: Render all 5 social formats
       if (options.multiFormat !== false) {
-        console.log(`📱 [${job.id}] Rendering social media formats...`);
+        console.log(`📱 [${job.id}] Rendering 5 social formats: YouTube, Reels, TikTok, Facebook, Website...`);
         job.formats = await this.renderSocialFormats(finalVideoPath, publicDir, job.id);
-        console.log(`📱 [${job.id}] Formats ready: ${Object.keys(job.formats).join(', ')}`);
+        console.log(`📱 [${job.id}] All formats ready: ${Object.keys(job.formats).join(', ')}`);
       }
 
       job.status = 'completed';
@@ -712,8 +728,56 @@ Return ONLY the narration text, nothing else.`
     });
   }
 
-  private async renderSocialFormats(inputPath: string, publicDir: string, jobId: string): Promise<{ youtube?: string; reels?: string; facebook?: string }> {
-    const formats: { youtube?: string; reels?: string; facebook?: string } = {};
+  private async applyColorGrading(inputPath: string, outputPath: string): Promise<void> {
+    return new Promise((resolve) => {
+      // Teal & Orange LUT simulation: warm highlights, cool shadows, high contrast cinematic look
+      const lutFilter = [
+        'curves=r=\'0/0 0.3/0.28 0.7/0.76 1/1\':g=\'0/0 0.3/0.3 0.7/0.72 1/0.95\':b=\'0/0.06 0.3/0.36 0.7/0.65 1/0.85\'',
+        'eq=contrast=1.15:saturation=1.25:brightness=0.02:gamma=0.95',
+      ].join(',');
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "${lutFilter}" -c:v libx264 -preset ultrafast -crf 22 -c:a copy "${outputPath}" 2>&1`;
+      exec(cmd, { timeout: 90000 }, (error) => {
+        if (error) {
+          console.error('Color grading failed, using ungraded:', error.message);
+          fs.copyFileSync(inputPath, outputPath);
+        } else {
+          console.log('🎨 Cinematic teal & orange color grade applied');
+        }
+        resolve();
+      });
+    });
+  }
+
+  private async burnSubtitlesIntoVideo(inputPath: string, outputPath: string, narration: string, duration: number): Promise<void> {
+    return new Promise((resolve) => {
+      // Split narration into 2 parts for timed captions
+      const words = narration.split(' ');
+      const mid = Math.ceil(words.length / 2);
+      const line1 = words.slice(0, mid).join(' ').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/:/g, '\\:');
+      const line2 = words.slice(mid).join(' ').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/:/g, '\\:');
+      const t1End = Math.floor(duration * 0.45);
+      const t2Start = Math.floor(duration * 0.5);
+
+      const subtitleFilter = [
+        `drawtext=text='${line1}':fontsize=42:fontcolor=white:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:shadowcolor=black:shadowx=3:shadowy=3:x=(w-text_w)/2:y=h-120:enable='between(t,0,${t1End})'`,
+        `drawtext=text='${line2}':fontsize=42:fontcolor=yellow:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:shadowcolor=black:shadowx=3:shadowy=3:x=(w-text_w)/2:y=h-120:enable='between(t,${t2Start},${duration})'`,
+      ].join(',');
+
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "${subtitleFilter}" -c:v libx264 -preset ultrafast -crf 22 -c:a copy "${outputPath}" 2>&1`;
+      exec(cmd, { timeout: 90000 }, (error) => {
+        if (error) {
+          console.error('Subtitle burn failed, skipping captions:', error.message);
+          fs.copyFileSync(inputPath, outputPath);
+        } else {
+          console.log('📝 Cinematic captions burned into video');
+        }
+        resolve();
+      });
+    });
+  }
+
+  private async renderSocialFormats(inputPath: string, publicDir: string, jobId: string): Promise<{ youtube?: string; reels?: string; facebook?: string; tiktok?: string; website?: string }> {
+    const formats: { youtube?: string; reels?: string; facebook?: string; tiktok?: string; website?: string } = {};
 
     // YouTube is the default 16:9 output (already generated as main video)
     formats.youtube = `/generated-videos/${jobId}.mp4`;
@@ -734,6 +798,26 @@ Return ONLY the narration text, nothing else.`
       const cmd = `ffmpeg -y -i "${inputPath}" -vf "scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1" -c:v libx264 -preset ultrafast -crf 25 -c:a copy "${squarePath}" 2>&1`;
       exec(cmd, { timeout: 60000 }, (error) => {
         if (!error) formats.facebook = `/generated-videos/${jobId}_square.mp4`;
+        resolve();
+      });
+    });
+
+    // TikTok 9:16 (same as Reels but different file for direct TikTok upload)
+    await new Promise<void>((resolve) => {
+      const tiktokPath = path.join(publicDir, `${jobId}_tiktok.mp4`);
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1" -c:v libx264 -preset ultrafast -crf 24 -c:a copy "${tiktokPath}" 2>&1`;
+      exec(cmd, { timeout: 60000 }, (error) => {
+        if (!error) formats.tiktok = `/generated-videos/${jobId}_tiktok.mp4`;
+        resolve();
+      });
+    });
+
+    // Website Hero Banner 1920x600 (wide cinematic crop)
+    await new Promise<void>((resolve) => {
+      const webPath = path.join(publicDir, `${jobId}_web.mp4`);
+      const cmd = `ffmpeg -y -i "${inputPath}" -vf "scale=1920:1080,crop=1920:600:0:240,setsar=1" -c:v libx264 -preset ultrafast -crf 25 -c:a copy "${webPath}" 2>&1`;
+      exec(cmd, { timeout: 60000 }, (error) => {
+        if (!error) formats.website = `/generated-videos/${jobId}_web.mp4`;
         resolve();
       });
     });

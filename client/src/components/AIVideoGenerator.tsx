@@ -944,12 +944,31 @@ export default function AIVideoGenerator() {
                       />
                     </div>
 
-                    {/* Social Format Info */}
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                      <span className="flex items-center gap-1"><span className="text-red-500">▶</span> YouTube 16:9</span>
-                      <span className="flex items-center gap-1"><span className="text-pink-500">◆</span> Reels 9:16</span>
-                      <span className="flex items-center gap-1"><span className="text-blue-500">f</span> Facebook 1:1</span>
-                      <span className="ml-auto text-green-600 font-medium">3 formats auto-rendered</span>
+                    {/* Production Pipeline Visual */}
+                    <div className="bg-slate-900 dark:bg-black rounded-lg p-3 border border-slate-700">
+                      <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-2">Production Pipeline</p>
+                      <div className="flex items-center gap-1 flex-wrap text-[9px]">
+                        {[
+                          { label: 'Script', color: 'text-blue-400' },
+                          { label: '→', color: 'text-slate-500' },
+                          { label: 'DALL·E Scenes', color: 'text-purple-400' },
+                          { label: '→', color: 'text-slate-500' },
+                          { label: 'ElevenLabs Voice', color: 'text-green-400' },
+                          { label: '→', color: 'text-slate-500' },
+                          { label: 'LUT Grade', color: 'text-orange-400' },
+                          { label: '→', color: 'text-slate-500' },
+                          { label: 'Captions', color: 'text-yellow-400' },
+                          { label: '→', color: 'text-slate-500' },
+                          { label: '5 Formats', color: 'text-emerald-400' },
+                        ].map((item, i) => (
+                          <span key={i} className={`font-mono font-bold ${item.color}`}>{item.label}</span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {['▶ YouTube 16:9', '◆ Reels 9:16', '♪ TikTok 9:16', 'f Facebook 1:1', '🌐 Website Hero'].map((fmt) => (
+                          <span key={fmt} className="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">{fmt}</span>
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1015,30 +1034,48 @@ export default function AIVideoGenerator() {
                       </div>
                     )}
 
-                    {/* Social Format Downloads */}
+                    {/* 5-Platform Social Format Downloads */}
                     {(activeJob as any).formats && (
                       <div className="space-y-2">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
-                          <Smartphone className="w-3.5 h-3.5" /> Download for Social Media
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                          <Smartphone className="w-3.5 h-3.5" /> Download — All 5 Platforms Ready
+                          <Badge className="bg-green-100 text-green-700 text-[10px] ml-auto">Auto-Rendered</Badge>
                         </p>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-5 gap-1.5">
                           {(activeJob as any).formats.youtube && (
-                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.youtube; a.download = `youtube-16x9-${Date.now()}.mp4`; a.click(); }}>
-                              <span className="text-red-600 font-bold text-xs">▶ YouTube</span>
-                              <span className="text-slate-400 text-[10px]">16:9 HD</span>
-                            </Button>
+                            <button className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950 transition-colors cursor-pointer" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.youtube; a.download = `youtube-16x9-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-red-600 text-base">▶</span>
+                              <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">YouTube</span>
+                              <span className="text-[8px] text-slate-400">16:9</span>
+                            </button>
                           )}
                           {(activeJob as any).formats.reels && (
-                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-pink-200 hover:bg-pink-50 dark:border-pink-800 dark:hover:bg-pink-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.reels; a.download = `reels-9x16-${Date.now()}.mp4`; a.click(); }}>
-                              <span className="text-pink-600 font-bold text-xs">◆ Reels</span>
-                              <span className="text-slate-400 text-[10px]">9:16 Vertical</span>
-                            </Button>
+                            <button className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-pink-200 hover:bg-pink-50 dark:border-pink-800 dark:hover:bg-pink-950 transition-colors cursor-pointer" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.reels; a.download = `reels-9x16-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-pink-500 text-base">◆</span>
+                              <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">Reels</span>
+                              <span className="text-[8px] text-slate-400">9:16</span>
+                            </button>
+                          )}
+                          {(activeJob as any).formats.tiktok && (
+                            <button className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.tiktok; a.download = `tiktok-9x16-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-slate-900 dark:text-white text-base font-bold">♪</span>
+                              <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">TikTok</span>
+                              <span className="text-[8px] text-slate-400">9:16</span>
+                            </button>
                           )}
                           {(activeJob as any).formats.facebook && (
-                            <Button size="sm" variant="outline" className="flex flex-col h-auto py-2 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.facebook; a.download = `facebook-square-${Date.now()}.mp4`; a.click(); }}>
-                              <span className="text-blue-600 font-bold text-xs">f Facebook</span>
-                              <span className="text-slate-400 text-[10px]">1:1 Square</span>
-                            </Button>
+                            <button className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950 transition-colors cursor-pointer" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.facebook; a.download = `facebook-square-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-blue-600 text-base font-bold">f</span>
+                              <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">Facebook</span>
+                              <span className="text-[8px] text-slate-400">1:1</span>
+                            </button>
+                          )}
+                          {(activeJob as any).formats.website && (
+                            <button className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950 transition-colors cursor-pointer" onClick={() => { const a = document.createElement('a'); a.href = (activeJob as any).formats.website; a.download = `website-hero-${Date.now()}.mp4`; a.click(); }}>
+                              <span className="text-emerald-600 text-base">🌐</span>
+                              <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">Website</span>
+                              <span className="text-[8px] text-slate-400">Hero</span>
+                            </button>
                           )}
                         </div>
                       </div>
