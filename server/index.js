@@ -10,6 +10,7 @@ const multer = require('multer');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const PDFDocument = require('pdfkit');
+const { execSync } = require('child_process');
 let fetch = global.fetch; try{ if (!fetch) fetch = require('node-fetch'); }catch{}
 
 const app = express();
@@ -162,6 +163,25 @@ cron.schedule('0 9 * * *', async ()=>{
     if (it.type==='claim_submitted' && (d===30||d===60)) await notify({ subject:`[SLA] Claim follow-up ${d}d — ${it.address||''}`, html:`Claim follow-up at ${d} days for ${it.name||'Customer'}` });
     if (it.type==='work_completed' && d===45) await notify({ subject:`[SLA] File lien — ${it.address||''}`, html:`45 days since work completed.` });
     if (it.type==='lien_filed' && (d===300||d===330)) await notify({ subject:`[SLA] Lien age ${d}d — ${it.address||''}`, html:`Check state deadlines.` });
+  }
+});
+
+// --- Daily GitHub auto-push (runs at 2:00 AM every day)
+cron.schedule('0 2 * * *', () => {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    console.log('⚠️ GitHub auto-push skipped: GITHUB_TOKEN not set');
+    return;
+  }
+  try {
+    console.log('📦 GitHub auto-push: starting daily sync...');
+    execSync(
+      `git push https://pinnacleservicesavers-hub:${token}@github.com/pinnacleservicesavers-hub/Disaster-Storm.git HEAD:main`,
+      { cwd: '/home/runner/workspace', stdio: 'pipe', timeout: 120000 }
+    );
+    console.log('✅ GitHub auto-push: code pushed successfully at', new Date().toISOString());
+  } catch (err) {
+    console.error('❌ GitHub auto-push failed:', err.stderr?.toString() || err.message);
   }
 });
 
